@@ -230,7 +230,11 @@ The dev-briefs `holdings-and-quotes.md` in corpus-mcp and quote-mcp
     no longer has its words stays verified and is flagged `anchor_lost`.
   - §3.3 (corpus-mcp #14, open): corpus-mcp's six quote tools stay one release, each naming the
     quote-mcp tool to use instead.
-  Next: corpus-mcp's admin pages (§3.4) and quote-mcp's agent edits (§2.5).
+  - §3.4, as agreed with the user: corpus-mcp's admin menu and book pages link to quote-mcp's own
+    `/admin/quotes` rather than rebuilding a quotes list. Its reader keeps highlights and saving a
+    selection, through two LAN routes quote-mcp adds (quotes by `calibre_uuid` with anchors and flags, and
+    a `POST` like `add_quote`). Editing stays on quote-mcp's pages. More waits on real use.
+  Next: those routes and the reader, and quote-mcp's agent edits (§2.5).
 - **Deploys** in all three repos roll back on any failure after the release switch, units included
   (holdings-mcp #1, quote-mcp #7, corpus-mcp #12). quote-mcp also puts back the store from before a
   migration that changed its schema.
