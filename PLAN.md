@@ -216,14 +216,16 @@ The dev-briefs `holdings-and-quotes.md` in corpus-mcp and quote-mcp
 - **Phase 2:** quote-mcp's counts feed (quote-mcp #5) gives every entry `work_id` and `match`. A filed
   work's quotes move to the work of its Zotero item, and `former_work_ids` names the ids it absorbed; their
   `quote:` keys resolve to it. Filings made before that deploy weren't recorded.
-- **Phase 3:** corpus-mcp's `POST /api/verify`, `POST`/`DELETE /api/anchors`, and
-  `GET /api/anchors/changes` (with a `log` id) are corpus-mcp #11; quote-mcp's `add_quote` is quote-mcp #6.
-  Both are reviewed, but they're not on main yet. Each was stacked on its feed PR, so merging it landed
-  it on the feed branch instead.
+- **Phase 3:** deployed. corpus-mcp `eb74690` serves `POST /api/verify`, `POST`/`DELETE /api/anchors`,
+  and `GET /api/anchors/changes` (with a `log` id). quote-mcp `2fdf7ba` has `add_quote`, plus #8:
+  `cite_quote` returns prose, book and position, and `take-corpus-quotes` brings corpus-mcp's quotes over.
+  Filing data still comes from corpus-mcp's `cite_passage`, and `pin_citekey` stays in corpus-mcp.
   An unmatched work that `add_quote` makes for a Calibre book carries `calibre_uuid` in the counts feed,
   and holdings-mcp joins it to that book's work: the UUID is an exact link, not a guess from the title.
-  Next: the `cited-article` skill switches to quote-mcp (§3.1 of corpus-mcp's brief), then corpus-mcp's
-  five quotes are imported and its quote tools retire.
+  §3.1 is corpus-mcp #13 (open): `cited-article` saves quotes with `add_quote` and cites them with
+  `cite_quote`, and drafts mark them `<!-- quote <id> -->`. Next: quote-mcp imports corpus-mcp's four
+  real quotes and sends the old-to-new ids, then corpus-mcp cleans up (§3.2) and retires its quote tools
+  (§3.3).
 - **Deploys** in all three repos roll back on any failure after the release switch, units included
   (holdings-mcp #1, quote-mcp #7, corpus-mcp #12). quote-mcp also puts back the store from before a
   migration that changed its schema.
