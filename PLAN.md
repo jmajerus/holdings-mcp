@@ -199,7 +199,7 @@ The dev-briefs `holdings-and-quotes.md` in corpus-mcp and quote-mcp
 
 ## Status (2026-11-03)
 
-- **Deployed:** phases 0–2, and step 1 of phase 3 (verify, anchors, and `add_quote`). holdings-mcp runs
+- **Deployed:** phases 0–2. holdings-mcp runs
   on `holdings-mcp.localdomain` behind Access and is in the Authoring MCP portal. At deploy it held
   2,113 works:
   - 1,349 Zotero items;
@@ -218,6 +218,8 @@ The dev-briefs `holdings-and-quotes.md` in corpus-mcp and quote-mcp
   `quote:` keys resolve to it. Filings made before that deploy weren't recorded.
 - **Phase 3:** corpus-mcp's `POST /api/verify`, `POST`/`DELETE /api/anchors`, and
   `GET /api/anchors/changes` (with a `log` id) are corpus-mcp #11; quote-mcp's `add_quote` is quote-mcp #6.
+  Both are reviewed, but they're not on main yet. Each was stacked on its feed PR, so merging it landed
+  it on the feed branch instead.
   An unmatched work that `add_quote` makes for a Calibre book carries `calibre_uuid` in the counts feed,
   and holdings-mcp joins it to that book's work: the UUID is an exact link, not a guess from the title.
   Next: the `cited-article` skill switches to quote-mcp (§3.1 of corpus-mcp's brief), then corpus-mcp's
