@@ -1,0 +1,33 @@
+{
+  "name": "holdings-mcp",
+  "version": "0.1.0",
+  "description": "What do I have, and in what form? One lookup over every work in Zotero, Calibre, and the quote store, keyed by Zotero item and citekey",
+  "scripts": {
+    "holdings": "tsx --env-file-if-exists=.env src/cli.ts",
+    "refresh": "tsx --env-file-if-exists=.env src/cli.ts refresh",
+    "serve": "tsx --env-file-if-exists=.env src/cli.ts serve",
+    "build": "tsc -p tsconfig.build.json",
+    "deploy": "node --env-file-if-exists=.env tools/deploy.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "better-sqlite3": "^13.0.3",
+    "jose": "^6.2.14",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

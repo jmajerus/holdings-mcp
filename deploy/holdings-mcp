@@ -1,0 +1,11 @@
+#!/bin/bash
+# holdings-mcp's CLI on its server, for the authoring login: `holdings-mcp status`, `holdings-mcp refresh
+# --rebuild`, and so on, from any folder. It runs the CLI as the holdings user with the server's
+# settings, as the services do; sudo asks for authoring's password. npm run deploy installs it in
+# /usr/local/bin. It runs in the current release, so give files it writes a path the holdings user can
+# write, such as /tmp.
+set -euo pipefail
+if [ "$(id -un)" != holdings ]; then exec sudo runuser -u holdings -- "$0" "$@"; fi
+set -a; . /etc/holdings-mcp/env; set +a
+cd /opt/holdings-mcp/current
+exec node dist/cli.js "$@"
