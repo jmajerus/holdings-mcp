@@ -211,7 +211,10 @@ The dev-briefs `holdings-and-quotes.md` in corpus-mcp and quote-mcp
   filed work's quotes move to the work of its Zotero item, so `former_work_ids` names the ids it absorbed,
   and their `quote:` keys resolve to it. Filings made before that deploy weren't recorded.
 - **Phase 3:** corpus-mcp and quote-mcp have agreed `POST /api/verify`, `POST`/`DELETE /api/anchors`, and
-  `GET /api/anchors/changes`. quote-mcp's `add_quote` is being built against them.
+  `GET /api/anchors/changes`. quote-mcp's `add_quote` is in quote-mcp PR #6, which is stacked on #5 and
+  tested against a fake of corpus-mcp. An unmatched work that `add_quote` makes for a Calibre book carries
+  `calibre_uuid` in the counts feed. holdings-mcp joins such a work to that book's work, because the
+  UUID is an exact link, not a guess from the title.
 - **Libraries:** both, `users/827407` and `groups/61098`, the libraries quote-mcp reads
   (`HOLDINGS_ZOTERO_LIBRARIES`).
 
