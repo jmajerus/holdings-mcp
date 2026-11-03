@@ -236,7 +236,10 @@ The dev-briefs `holdings-and-quotes.md` in corpus-mcp and quote-mcp
     a `POST` like `add_quote`). Editing stays on quote-mcp's pages. More waits on real use.
     Deployed: the links (corpus-mcp `24f8fa6`), the routes (quote-mcp #10) and the reader (corpus-mcp
     #15). corpus-mcp's quote tools (#14) now name the quote-mcp tool to use instead.
-  Next: quote-mcp's agent edits (§2.5).
+  - §2.5 (quote-mcp #11, open): `update_quote` for tags and comments, `propose_quote_fix` for text, page
+    or chapter author (a person accepts with `quote-mcp proposals`), and `delete_quote` for agent and
+    corpus quotes. Ids are never reused after a delete. Schema 4.
+  Phase 3 is done once #11 is deployed.
 - **Deploys** in all three repos roll back on any failure after the release switch, units included
   (holdings-mcp #1, quote-mcp #7, corpus-mcp #12). quote-mcp also puts back the store from before a
   migration that changed its schema.
