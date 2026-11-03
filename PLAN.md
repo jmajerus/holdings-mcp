@@ -234,7 +234,9 @@ The dev-briefs `holdings-and-quotes.md` in corpus-mcp and quote-mcp
     `/admin/quotes` rather than rebuilding a quotes list. Its reader keeps highlights and saving a
     selection, through two LAN routes quote-mcp adds (quotes by `calibre_uuid` with anchors and flags, and
     a `POST` like `add_quote`). Editing stays on quote-mcp's pages. More waits on real use.
-  Next: those routes and the reader, and quote-mcp's agent edits (§2.5).
+    The links are on corpus-mcp main (`24f8fa6`); the routes are quote-mcp #10 and the reader corpus-mcp
+    #15, both open.
+  Next: quote-mcp's agent edits (§2.5).
 - **Deploys** in all three repos roll back on any failure after the release switch, units included
   (holdings-mcp #1, quote-mcp #7, corpus-mcp #12). quote-mcp also puts back the store from before a
   migration that changed its schema.
