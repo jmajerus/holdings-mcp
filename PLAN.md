@@ -228,14 +228,14 @@ The dev-briefs `holdings-and-quotes.md` in corpus-mcp and quote-mcp
     3→830, 4→829, 5→828; test quote 2 skipped). corpus-mcp deleted its old 3–5; 1 and 2 wait on the user.
   - §2.4 (quote-mcp #9, merged): quote-mcp follows the anchor changes feed; a quote whose book's new file
     no longer has its words stays verified and is flagged `anchor_lost`.
-  - §3.3 (corpus-mcp #14, open): corpus-mcp's six quote tools stay one release, each naming the
+  - §3.3 (corpus-mcp #14, merged): corpus-mcp's six quote tools stay one release, each naming the
     quote-mcp tool to use instead.
   - §3.4, as agreed with the user: corpus-mcp's admin menu and book pages link to quote-mcp's own
     `/admin/quotes` rather than rebuilding a quotes list. Its reader keeps highlights and saving a
     selection, through two LAN routes quote-mcp adds (quotes by `calibre_uuid` with anchors and flags, and
     a `POST` like `add_quote`). Editing stays on quote-mcp's pages. More waits on real use.
-    The links are on corpus-mcp main (`24f8fa6`); the routes are quote-mcp #10 and the reader corpus-mcp
-    #15, both open.
+    Deployed: the links (corpus-mcp `24f8fa6`), the routes (quote-mcp #10) and the reader (corpus-mcp
+    #15). corpus-mcp's quote tools (#14) now name the quote-mcp tool to use instead.
   Next: quote-mcp's agent edits (§2.5).
 - **Deploys** in all three repos roll back on any failure after the release switch, units included
   (holdings-mcp #1, quote-mcp #7, corpus-mcp #12). quote-mcp also puts back the store from before a
