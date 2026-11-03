@@ -1,0 +1,14 @@
+[Unit]
+Description=holdings-mcp: back up the holdings store
+
+[Service]
+Type=oneshot
+User=holdings
+Group=holdings
+EnvironmentFile=/etc/holdings-mcp/env
+WorkingDirectory=/opt/holdings-mcp/current
+ExecStart=/usr/bin/node /opt/holdings-mcp/current/dist/cli.js backup --dir /var/lib/holdings-mcp/backups --keep 14
+NoNewPrivileges=yes
+ProtectSystem=strict
+PrivateTmp=yes
+ReadWritePaths=/var/lib/holdings-mcp

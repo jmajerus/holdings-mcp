@@ -197,6 +197,28 @@ takes a key from `find_work`.
 The dev-briefs `holdings-and-quotes.md` in corpus-mcp and quote-mcp
 (`docs/dev-briefs/`) give each repository its share of phases 1–5.
 
+## Status (2026-11-02)
+
+- **Phase 0** is built on `feat/phase-0`, and so are the consumers for phases 1 and 2, written against
+  the feeds as built. Nothing is deployed yet. The mirror holds every Zotero item, notes included, as
+  quote-mcp's does: a test sync of both libraries gave 1,349 works.
+- **Phase 1:** corpus-mcp's books feed is in corpus-mcp PR #10. It sends indexed books only. As built, it differs
+  from the brief:
+  - `zotero.matched_by` is `confirmed`, `calibre_uuid`, or `isbn`, and all three count as matches;
+  - `formats` lists only the format the index read;
+  - `calibre_uuid` can be null, in which case the book id is the interim key.
+- **Phase 2:** quote-mcp's counts feed is in quote-mcp PR #5. Every entry carries `work_id` and `match`. A
+  filed work's quotes move to the work of its Zotero item, so `former_work_ids` names the ids it absorbed,
+  and their `quote:` keys resolve to it. Filings made before that deploy weren't recorded.
+- **Phase 3:** corpus-mcp and quote-mcp have agreed `POST /api/verify`, `POST`/`DELETE /api/anchors`, and
+  `GET /api/anchors/changes`. corpus-mcp has built them in corpus-mcp PR #11, which is stacked
+  on the books feed branch. The changes feed also returns a `log` id. quote-mcp's `add_quote` is in quote-mcp PR #6, which is stacked on #5 and
+  tested against a fake of corpus-mcp. An unmatched work that `add_quote` makes for a Calibre book carries
+  `calibre_uuid` in the counts feed. holdings-mcp joins such a work to that book's work, because the
+  UUID is an exact link, not a guess from the title.
+- **Libraries:** both, `users/827407` and `groups/61098`, the libraries quote-mcp reads
+  (`HOLDINGS_ZOTERO_LIBRARIES`).
+
 ## Open questions
 
 - **Print copies.** How should holdings-mcp know a paper book is on the
