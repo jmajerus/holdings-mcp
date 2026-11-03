@@ -5,7 +5,8 @@ import { type BookEntry, type CountEntry, snapshot } from "./feeds.js";
  * Rebuilds works, their keys, and their holdings from the Zotero mirror and the feeds' last snapshots
  * (PLAN.md, Data and Keys). Zotero items come first; a Calibre book or quote-mcp work joins the item it's
  * matched to, and becomes a work of its own (calibre:<uuid>, quote:<id>) when there's no item to join.
- * Unfiled books and quote-mcp works are never joined to each other on title guesses.
+ * Unfiled books and quote-mcp works are never joined to each other on title guesses, only by the Calibre
+ * UUID quote-mcp records when a quote is saved from a book.
  *
  * An interim key that stops being a work's key (its book or work was filed and matched) is recorded in
  * former_keys with the work it now belongs to, so it keeps resolving.
@@ -69,6 +70,8 @@ export function rebuildWorks(db: DB): RebuildResult {
   const works = new Map<string, Work>();
   const keys: { key: string; work_key: string; kind: string }[] = [];
   const holdings: { work_key: string; form: string; ref: string; detail: unknown }[] = [];
+  /** Where each Calibre book went, by UUID: its Zotero item's work, or its own. */
+  const bookWorks = new Map<string, string>();
   const orphans: string[] = [];
   const alias = (key: string | null | undefined, work_key: string, kind: string) => key && keys.push({ key, work_key, kind });
 
@@ -109,7 +112,10 @@ export function rebuildWorks(db: DB): RebuildResult {
     const work = works.get(target)!;
     if (!work.citekey && book.citekey) work.citekey = book.citekey;
     for (const isbn of book.isbns ?? []) if (!work.isbns.includes(isbn)) work.isbns.push(isbn);
-    if (book.calibre_uuid) alias(interim, target, "calibre");
+    if (book.calibre_uuid) {
+      alias(interim, target, "calibre");
+      bookWorks.set(book.calibre_uuid, target);
+    }
     alias(book.book_id, target, "book");
     alias(book.citekey, target, "citekey");
     holdings.push({
@@ -120,7 +126,8 @@ export function rebuildWorks(db: DB): RebuildResult {
 
   for (const entry of counts) {
     const matched = entry.zotero ? workKey(entry.zotero.library, entry.zotero.key) : null;
-    let target = matched && works.get(matched)?.kind === "zotero" ? matched : null;
+    // A work quoted from a Calibre book joins that book's work: an exact link, not a guess from its title.
+    let target = matched && works.get(matched)?.kind === "zotero" ? matched : (entry.calibre_uuid && bookWorks.get(entry.calibre_uuid)) || null;
     if (!target) {
       if (entry.work_id === undefined) {
         orphans.push(`quote-mcp's quotes from ${matched} can't be placed: the item isn't in the mirror and the feed sent no work_id`);

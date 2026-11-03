@@ -126,6 +126,22 @@ describe("works", () => {
     expect(scan.holdings.text).toBeUndefined();
   });
 
+  it("joins quotes saved from an unfiled Calibre book to that book's work, and follows it into Zotero", async () => {
+    counts([{ work_id: 700, match: "unmatched", calibre_uuid: LOOSE_UUID, title: "Thinking in Systems", authors: ["Donella Meadows"], year: "2008", quotes: 2, notes: 0, verified: 2 }]);
+    await refresh(db, { zotero: [], env, force: true });
+    const loose = getWork(db, "quote:700") as Record<string, any>;
+    expect(loose.key).toBe(`calibre:${LOOSE_UUID}`);
+    expect(loose.holdings.text.book_id).toBe("main:42");
+    expect(loose.holdings.quotes).toMatchObject({ quotes: 2, verified: 2, work: `calibre:${LOOSE_UUID}` });
+
+    addItem(db, "MEAD2008", { itemType: "book", title: "Thinking in Systems", date: "2008", citationKey: "meadows2008thinking" });
+    (bodies["/api/holdings/books"] as { books: Record<string, unknown>[] }).books[1].zotero = { library: LIB, key: "MEAD2008", matched_by: "confirmed" };
+    await refresh(db, { zotero: [], env, force: true });
+    expect((getWork(db, "quote:700") as Record<string, any>).key).toBe(`zotero:${LIB}/MEAD2008`);
+    books();
+    counts();
+  });
+
   it("leaves notes and attachments out of works", () => {
     expect(() => getWork(db, "NOTE0001")).toThrow(ToolError);
     expect(() => getWork(db, "PDF00001")).toThrow(ToolError);

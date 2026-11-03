@@ -27,6 +27,8 @@ export interface BookEntry {
 /** quote-mcp's GET /api/holdings/counts (its docs/dev-briefs/holdings-and-quotes.md, §1). */
 export interface CountEntry {
   work_id?: number;
+  /** The Calibre book an unmatched work's quotes were saved from (add_quote), so it joins that book's work. */
+  calibre_uuid?: string | null;
   /** Ids of quote-mcp works merged into this one when it was filed: their quote:<id> keys now name it. */
   former_work_ids?: number[];
   match?: "zotero" | "unmatched" | "ambiguous";
