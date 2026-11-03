@@ -8,9 +8,12 @@ import { serveHttp, serveStdio } from "./server.js";
 import { zoteroConfigs } from "./zotero.js";
 
 /**
- *   holdings-mcp refresh [--rebuild]   Syncs the Zotero mirror (HOLDINGS_ZOTERO_LIBRARIES), polls the feeds
+ *   holdings-mcp refresh [--rebuild] [--strict]
+ *                                      Syncs the Zotero mirror (HOLDINGS_ZOTERO_LIBRARIES), polls the feeds
  *                                      (HOLDINGS_BOOKS_URL, HOLDINGS_COUNTS_URL), and rebuilds the works if
- *                                      anything changed (always, with --rebuild).
+ *                                      anything changed (always, with --rebuild). Exits 1 when a Zotero library
+ *                                      failed; a feed that failed is only reported (the server retries it), unless
+ *                                      --strict.
  *   holdings-mcp serve                 MCP over HTTP at /mcp and /health (HOLDINGS_HOST, HOLDINGS_PORT), refreshing
  *                                      every HOLDINGS_REFRESH_SECONDS.
  *   holdings-mcp status                What holdings_status answers.
@@ -32,7 +35,7 @@ async function refreshCommand() {
   console.log(r.changed ? `Rebuilt: ${r.works} works.` : "Nothing changed.");
   const errors = holdingsStatus(db).feeds.filter((f) => f.error);
   for (const f of errors) console.log(`Error: ${f.error}`);
-  if (errors.length) process.exitCode = 1;
+  if (errors.some((f) => flag("--strict") || f.name.startsWith("zotero:"))) process.exitCode = 1;
 }
 
 async function serveCommand() {

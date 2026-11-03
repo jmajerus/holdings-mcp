@@ -64,23 +64,48 @@ function entries(body: unknown, field: string, check: (e: Record<string, unknown
   return body[field] as unknown[];
 }
 
-const zoteroRef = (z: unknown) => z === undefined || z === null || (isObject(z) && typeof z.library === "string" && typeof z.key === "string");
+/** A field's check, and how its type is named in the error. */
+type Rule = [check: (v: unknown) => boolean, type: string];
+
+const nullable = ([check, type]: Rule): Rule => [(v) => v === null || check(v), `${type} or null`];
+const text: Rule = [(v) => typeof v === "string", "a string"];
+const nonEmpty: Rule = [(v) => typeof v === "string" && v.length > 0, "a non-empty string"];
+const count: Rule = [(v) => Number.isInteger(v) && (v as number) >= 0, "a count"];
+const id: Rule = [(v) => Number.isInteger(v), "an integer"];
+const flag: Rule = [(v) => typeof v === "boolean", "true or false"];
+const texts: Rule = [(v) => Array.isArray(v) && v.every((s) => typeof s === "string"), "a list of strings"];
+const ids: Rule = [(v) => Array.isArray(v) && v.every((n) => Number.isInteger(n)), "a list of integers"];
+const year: Rule = nullable([(v) => typeof v === "string" || Number.isInteger(v), "a year"]);
+const zoteroRef: Rule = nullable([(v) => isObject(v) && typeof v.library === "string" && typeof v.key === "string", "{ library, key }"]);
+const match: Rule = [(v) => v === "zotero" || v === "unmatched" || v === "ambiguous", "zotero, unmatched, or ambiguous"];
+
+/** Every field rebuildWorks reads, so a snapshot that would break it is refused and the last good one kept. */
+function check(required: Record<string, Rule>, optional: Record<string, Rule>) {
+  return (e: Record<string, unknown>): string | null => {
+    for (const [name, [ok, type]] of Object.entries(required)) if (!ok(e[name])) return `${name} must be ${type}`;
+    for (const [name, [ok, type]] of Object.entries(optional)) if (e[name] !== undefined && !ok(e[name])) return `${name} must be ${type}`;
+    return null;
+  };
+}
+
+const bookFields = check(
+  { book_id: nonEmpty, library: text, title: text, authors: texts, formats: texts, has_text: flag },
+  { calibre_uuid: nullable(nonEmpty), year, isbns: texts, citekey: nullable(nonEmpty), citekey_source: nullable(text), zotero: zoteroRef },
+);
+const countFields = check(
+  { quotes: count, notes: count },
+  { verified: count, work_id: id, former_work_ids: ids, match, zotero: zoteroRef, citekey: nullable(nonEmpty), candidates: texts,
+    title: text, authors: texts, year, calibre_uuid: nullable(nonEmpty) },
+);
 
 export const FEEDS: Feed[] = [
   {
     name: "books", setting: "HOLDINGS_BOOKS_URL", path: "/api/holdings/books",
-    parse: (body) => entries(body, "books", (e) =>
-      typeof e.book_id !== "string" || !e.book_id ? "no book_id"
-        : e.calibre_uuid !== null && typeof e.calibre_uuid !== "string" ? "calibre_uuid must be a string or null"
-          : typeof e.title !== "string" ? "no title"
-            : !zoteroRef(e.zotero) ? "zotero must be { library, key } or null" : null),
+    parse: (body) => entries(body, "books", bookFields),
   },
   {
     name: "counts", setting: "HOLDINGS_COUNTS_URL", path: "/api/holdings/counts",
-    parse: (body) => entries(body, "works", (e) =>
-      !zoteroRef(e.zotero) ? "zotero must be { library, key } or null"
-        : !e.zotero && typeof e.work_id !== "number" ? "neither zotero nor work_id"
-          : typeof e.quotes !== "number" || typeof e.notes !== "number" ? "no counts" : null),
+    parse: (body) => entries(body, "works", (e) => countFields(e) ?? (!e.zotero && e.work_id === undefined ? "neither zotero nor work_id" : null)),
   },
 ];
 
@@ -129,7 +154,7 @@ export async function pollFeed(db: DB, feed: Feed, url: string, timeoutMs = 30_0
 }
 
 /** Records a Zotero library's sync on its feed row, so holdings_status shows it beside the others. */
-export function recordZotero(db: DB, library: string, result: { changed: number; version: number } | { error: string }): void {
+export function recordZotero(db: DB, library: string, result: { changed: number; deleted: number; version: number } | { error: string }): void {
   const at = now();
   const name = `zotero:${library}`;
   db.prepare("INSERT INTO feeds (name, checked_at) VALUES (?, ?) ON CONFLICT (name) DO UPDATE SET checked_at = excluded.checked_at").run(name, at);
@@ -139,5 +164,5 @@ export function recordZotero(db: DB, library: string, result: { changed: number;
   }
   const entries = (db.prepare("SELECT COUNT(*) AS n FROM zotero_items WHERE library = ? AND deleted = 0").get(library) as { n: number }).n;
   db.prepare("UPDATE feeds SET etag = ?, entries = ?, ok_at = ?, error = NULL, changed_at = CASE WHEN ? THEN ? ELSE changed_at END WHERE name = ?")
-    .run(String(result.version), entries, at, result.changed ? 1 : 0, at, name);
+    .run(String(result.version), entries, at, result.changed || result.deleted ? 1 : 0, at, name);
 }

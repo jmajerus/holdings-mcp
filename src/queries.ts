@@ -109,7 +109,7 @@ export function getWork(db: DB, key: string) {
   const rows = resolve(db, key);
   if (!rows.length) throw new ToolError(`No work has the key "${key}". Try find_work with words from its title or an author.`);
   if (rows.length > 1) {
-    return { note: `"${key}" names ${rows.length} works (an ISBN or citekey shared by editions or duplicates); pick one by its key.`, works: rows.map((r) => describe(db, r)) };
+    return { note: `"${key}" names ${rows.length} works (an ISBN or citekey shared by editions or duplicates); pick one by its key.`, works: rows.map((r) => describe(db, r, true)) };
   }
   return describe(db, rows[0], true);
 }

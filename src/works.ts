@@ -147,7 +147,7 @@ export function rebuildWorks(db: DB): RebuildResult {
     for (const id of entry.former_work_ids ?? []) alias(`quote:${id}`, target, "quote");
     alias(entry.citekey, target, "citekey");
     holdings.push({
-      work_key: target, form: "quotes", ref: entry.work_id !== undefined ? `quote:${entry.work_id}` : `zotero:${matched}`,
+      work_key: target, form: "quotes", ref: entry.work_id !== undefined ? `quote:${entry.work_id}` : target,
       detail: { work_id: entry.work_id ?? null, quotes: entry.quotes, notes: entry.notes, verified: entry.verified ?? 0 },
     });
   }

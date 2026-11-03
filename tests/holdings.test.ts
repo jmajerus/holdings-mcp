@@ -1,11 +1,12 @@
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair } from "jose";
+import { createHash } from "node:crypto";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { type DB, openDb } from "../src/db.js";
-import { feedUrl, FEEDS } from "../src/feeds.js";
+import { feedUrl, FEEDS, recordZotero } from "../src/feeds.js";
 import { ToolError, findWork, getWork, holdingsStatus } from "../src/queries.js";
 import { refresh } from "../src/refresh.js";
 import { serveHttp } from "../src/server.js";
@@ -58,7 +59,7 @@ beforeAll(async () => {
     hits[path] = (hits[path] ?? 0) + 1;
     if (!(path in bodies)) return void res.writeHead(404).end();
     const text = JSON.stringify(bodies[path]);
-    const etag = `"${Buffer.from(text).toString("base64url").slice(-16)}${text.length}"`;
+    const etag = `"${createHash("sha256").update(text).digest("hex").slice(0, 32)}"`;
     if (req.headers["if-none-match"] === etag) return void res.writeHead(304, { etag }).end();
     res.writeHead(200, { "content-type": "application/json", etag }).end(text);
   });
@@ -208,6 +209,36 @@ describe("feeds", () => {
     expect(status.feeds.find((f) => f.name === "books")?.error).toMatch(/expected \{ version: 1/);
     expect(findWork(db, { has: ["text"] }).total).toBe(2);
     books();
+  });
+
+  it("refuses a snapshot with a field of the wrong type, naming it", async () => {
+    const cases: [string, Record<string, unknown>, RegExp][] = [
+      ["/api/holdings/books", { authors: "Diana Montalion" }, /books\[0\]: authors must be a list of strings/],
+      ["/api/holdings/books", { has_text: "yes" }, /books\[0\]: has_text must be true or false/],
+      ["/api/holdings/counts", { candidates: "users/827407/ROBE1993" }, /works\[0\]: candidates must be a list of strings/],
+      ["/api/holdings/counts", { former_work_ids: [417, "52"] }, /works\[0\]: former_work_ids must be a list of integers/],
+      ["/api/holdings/counts", { quotes: -1 }, /works\[0\]: quotes must be a count/],
+    ];
+    for (const [path, change, error] of cases) {
+      const body = bodies[path] as Record<string, Record<string, unknown>[]>;
+      const list = body.books ?? body.works;
+      list[0] = { ...list[0], ...change };
+      await refresh(db, { zotero: [], env });
+      const name = path.endsWith("books") ? "books" : "counts";
+      expect(holdingsStatus(db).feeds.find((f) => f.name === name)?.error).toMatch(error);
+      expect(findWork(db, { has: ["text"] }).total).toBe(2);
+      expect(findWork(db, { has: ["quotes"] }).total).toBe(3);
+      books();
+      counts();
+    }
+  });
+
+  it("counts a Zotero deletion as a change", () => {
+    recordZotero(db, LIB, { changed: 0, deleted: 0, version: 5 });
+    const before = holdingsStatus(db).feeds.find((f) => f.name === `zotero:${LIB}`)?.changed_at;
+    expect(before).toBeNull();
+    recordZotero(db, LIB, { changed: 0, deleted: 2, version: 6 });
+    expect(holdingsStatus(db).feeds.find((f) => f.name === `zotero:${LIB}`)?.changed_at).toBeTruthy();
   });
 
   it("reports unmatched books and entries it can't place", async () => {

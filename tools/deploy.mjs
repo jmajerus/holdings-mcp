@@ -106,16 +106,41 @@ tar xzf /tmp/holdings-mcp-${id}.tgz -C "$release"
 rm -f /tmp/holdings-mcp-${id}.tgz
 cd "$release"
 npm ci --omit=dev --no-audit --no-fund --loglevel=error
-install -m 0644 deploy/holdings-mcp.service deploy/holdings-backup.service deploy/holdings-backup.timer /etc/systemd/system/
-install -m 0755 deploy/holdings-mcp /usr/local/bin/holdings-mcp
+set -a; . /etc/holdings-mcp/env; set +a
 previous=$(readlink /opt/holdings-mcp/current || true)
 echo "previous=$previous"
+fresh_store=""
+install_units() {
+  install -m 0644 "$1/deploy/holdings-mcp.service" "$1/deploy/holdings-backup.service" "$1/deploy/holdings-backup.timer" /etc/systemd/system/
+  install -m 0755 "$1/deploy/holdings-mcp" /usr/local/bin/holdings-mcp
+  systemctl daemon-reload
+}
+# From the switch on, any failure puts the previous release (and its units) back, and a first store that
+# didn't finish its first refresh is removed, so the next deploy runs it again.
+rollback() {
+  status=$?
+  [ "$status" -eq 0 ] && return
+  journalctl -u holdings-mcp.service -n 20 --no-pager || true
+  if [ -n "$fresh_store" ]; then
+    systemctl stop holdings-mcp.service || true
+    rm -f "$HOLDINGS_DB" "$HOLDINGS_DB-wal" "$HOLDINGS_DB-shm"
+    echo "removed the unfinished first store"
+  fi
+  if [ -n "$previous" ]; then
+    ln -sfn "$previous" /opt/holdings-mcp/current
+    install_units "$previous" || true
+    systemctl restart holdings-mcp.service || true
+    echo "rolled_back=$previous"
+  fi
+  exit "$status"
+}
+trap rollback EXIT
 ln -sfn "$release" /opt/holdings-mcp/current.new && mv -T /opt/holdings-mcp/current.new /opt/holdings-mcp/current
-systemctl daemon-reload
-set -a; . /etc/holdings-mcp/env; set +a
+install_units "$release"
 if [ ! -f "$HOLDINGS_DB" ]; then
   echo "No store yet: running the first refresh."
-  ${asHoldings("refresh --rebuild")} || true
+  fresh_store=1
+  ${asHoldings("refresh --rebuild")}
 else
   ${asHoldings("migrate")}
 fi
@@ -126,15 +151,8 @@ for i in $(seq 1 20); do
   if curl -sf "http://127.0.0.1:$HOLDINGS_PORT/health"; then echo; echo "installed=${id}"; break; fi
   sleep 1
 done
-if ! curl -sf -o /dev/null "http://127.0.0.1:$HOLDINGS_PORT/health"; then
-  journalctl -u holdings-mcp.service -n 20 --no-pager || true
-  if [ -n "$previous" ]; then
-    ln -sfn "$previous" /opt/holdings-mcp/current
-    systemctl restart holdings-mcp.service
-    echo "rolled_back=$previous"
-  fi
-  exit 1
-fi
+curl -sf -o /dev/null "http://127.0.0.1:$HOLDINGS_PORT/health"
+trap - EXIT
 ls -1dt /opt/holdings-mcp/releases/* | tail -n +4 | xargs -r rm -rf
 `);
   await writeDeployed({ branch: git(["rev-parse", "--abbrev-ref", "HEAD"]), commit: git(["rev-parse", "HEAD"]), local: true, dirty: git(["status", "--porcelain"]) !== "" });
