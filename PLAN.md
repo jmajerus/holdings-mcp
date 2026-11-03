@@ -216,17 +216,21 @@ The dev-briefs `holdings-and-quotes.md` in corpus-mcp and quote-mcp
 - **Phase 2:** quote-mcp's counts feed (quote-mcp #5) gives every entry `work_id` and `match`. A filed
   work's quotes move to the work of its Zotero item, and `former_work_ids` names the ids it absorbed; their
   `quote:` keys resolve to it. Filings made before that deploy weren't recorded.
-- **Phase 3:** deployed. corpus-mcp `eb74690` serves `POST /api/verify`, `POST`/`DELETE /api/anchors`,
-  and `GET /api/anchors/changes` (with a `log` id). quote-mcp `2fdf7ba` has `add_quote`, plus #8:
-  `cite_quote` returns prose, book and position, and `take-corpus-quotes` brings corpus-mcp's quotes over.
-  Filing data still comes from corpus-mcp's `cite_passage`, and `pin_citekey` stays in corpus-mcp.
-  An unmatched work that `add_quote` makes for a Calibre book carries `calibre_uuid` in the counts feed,
-  and holdings-mcp joins it to that book's work: the UUID is an exact link, not a guess from the title.
-  §3.1 is corpus-mcp #13 (open): `cited-article` saves quotes with `add_quote` and cites them with
-  `cite_quote`, and drafts mark them `<!-- quote <id> -->`. corpus-mcp's four real quotes are in
-  quote-mcp, verified and anchored (old→new 1→831, 3→830, 4→829, 5→828; the test quote 2 skipped); all
-  four books are in Zotero, so they joined their Zotero works. Next: corpus-mcp cleans up (§3.2) and
-  retires its quote tools (§3.3); quote-mcp follows the anchor changes feed (§2.4).
+- **Phase 3:** corpus-mcp `eb74690` serves `POST /api/verify`, `POST`/`DELETE /api/anchors`, and
+  `GET /api/anchors/changes` (with a `log` id). quote-mcp has `add_quote`; `cite_quote` returns prose,
+  book and position. Filing data still comes from corpus-mcp's `cite_passage`, and `pin_citekey` stays in
+  corpus-mcp. An unmatched work that `add_quote` makes for a Calibre book carries `calibre_uuid` in the
+  counts feed, and holdings-mcp joins it to that book's work: the UUID is an exact link, not a guess from
+  the title.
+  - §3.1 (corpus-mcp #13, merged): `cited-article` saves quotes with `add_quote`, cites them with
+    `cite_quote`, and marks them `<!-- quote <id> -->`; check-draft reads the old marker too.
+  - §2.3 and §3.2: corpus-mcp's four real quotes are in quote-mcp, verified and anchored (old→new 1→831,
+    3→830, 4→829, 5→828; test quote 2 skipped). corpus-mcp deleted its old 3–5; 1 and 2 wait on the user.
+  - §2.4 (quote-mcp #9, merged): quote-mcp follows the anchor changes feed; a quote whose book's new file
+    no longer has its words stays verified and is flagged `anchor_lost`.
+  - §3.3 (corpus-mcp #14, open): corpus-mcp's six quote tools stay one release, each naming the
+    quote-mcp tool to use instead.
+  Next: corpus-mcp's admin pages (§3.4) and quote-mcp's agent edits (§2.5).
 - **Deploys** in all three repos roll back on any failure after the release switch, units included
   (holdings-mcp #1, quote-mcp #7, corpus-mcp #12). quote-mcp also puts back the store from before a
   migration that changed its schema.
