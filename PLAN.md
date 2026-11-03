@@ -223,9 +223,10 @@ The dev-briefs `holdings-and-quotes.md` in corpus-mcp and quote-mcp
   An unmatched work that `add_quote` makes for a Calibre book carries `calibre_uuid` in the counts feed,
   and holdings-mcp joins it to that book's work: the UUID is an exact link, not a guess from the title.
   §3.1 is corpus-mcp #13 (open): `cited-article` saves quotes with `add_quote` and cites them with
-  `cite_quote`, and drafts mark them `<!-- quote <id> -->`. Next: quote-mcp imports corpus-mcp's four
-  real quotes and sends the old-to-new ids, then corpus-mcp cleans up (§3.2) and retires its quote tools
-  (§3.3).
+  `cite_quote`, and drafts mark them `<!-- quote <id> -->`. corpus-mcp's four real quotes are in
+  quote-mcp, verified and anchored (old→new 1→831, 3→830, 4→829, 5→828; the test quote 2 skipped); all
+  four books are in Zotero, so they joined their Zotero works. Next: corpus-mcp cleans up (§3.2) and
+  retires its quote tools (§3.3); quote-mcp follows the anchor changes feed (§2.4).
 - **Deploys** in all three repos roll back on any failure after the release switch, units included
   (holdings-mcp #1, quote-mcp #7, corpus-mcp #12). quote-mcp also puts back the store from before a
   migration that changed its schema.
