@@ -110,10 +110,11 @@ set -a; . /etc/holdings-mcp/env; set +a
 previous=$(readlink /opt/holdings-mcp/current || true)
 echo "previous=$previous"
 fresh_store=""
+# Chained with && so it fails at the first failing step even where set -e doesn't apply (in rollback's if).
 install_units() {
-  install -m 0644 "$1/deploy/holdings-mcp.service" "$1/deploy/holdings-backup.service" "$1/deploy/holdings-backup.timer" /etc/systemd/system/
-  install -m 0755 "$1/deploy/holdings-mcp" /usr/local/bin/holdings-mcp
-  systemctl daemon-reload
+  install -m 0644 "$1/deploy/holdings-mcp.service" "$1/deploy/holdings-backup.service" "$1/deploy/holdings-backup.timer" /etc/systemd/system/ \\
+    && install -m 0755 "$1/deploy/holdings-mcp" /usr/local/bin/holdings-mcp \\
+    && systemctl daemon-reload
 }
 # From the switch on, any failure puts the previous release (and its units) back, and a first store that
 # didn't finish its first refresh is removed, so the next deploy runs it again.
@@ -128,9 +129,12 @@ rollback() {
   fi
   if [ -n "$previous" ]; then
     ln -sfn "$previous" /opt/holdings-mcp/current
-    install_units "$previous" || true
-    systemctl restart holdings-mcp.service || true
-    echo "rolled_back=$previous"
+    if install_units "$previous"; then
+      systemctl restart holdings-mcp.service || echo "holdings-mcp didn't restart on $previous"
+      echo "rolled_back=$previous"
+    else
+      echo "rollback_incomplete=$previous: its units couldn't all be put back"
+    fi
   fi
   exit "$status"
 }
