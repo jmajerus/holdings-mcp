@@ -50,7 +50,7 @@ These need nothing beyond what holdings-mcp reads today.
 | **One quote-mcp work per item.** No two quote-mcp works in the counts feed name the same Zotero item. | fail | A filing that should have merged works (`former_work_ids`) and didn't | quote-mcp |
 | **One work per exact key.** No Zotero item key, Calibre UUID, Calibre book id, or `quote:` id names two works. Citekeys two works share are reported as drift (two libraries' Better BibTeX keys colliding, or duplicate items); ISBNs aren't checked. | fail; drift for citekeys | An exact key that resolves to the wrong work; a former key reused | holdings-mcp; Zotero for citekeys |
 | **Filed but unmatched.** A `calibre:` work whose UUID is in a Zotero item's Extra (`Calibre UUID: …`) in holdings-mcp's mirror. Each finding names the item's library. | drift (an hour), then fail | corpus-mcp's mirror lagging. An item filed in `groups/61098` can never match: corpus-mcp matches against one library (`CORPUS_ZOTERO_LIBRARY`, `users/827407`), and holdings-mcp mirrors two. Until corpus-mcp reads both, those findings stay `fail` and say why. | corpus-mcp |
-| **Likely missed matches.** A `calibre:` work and a Zotero item that share an ISBN. | drift (reported, never fails); `skipped` while corpus-mcp's books feed sends no `isbns`, as it doesn't yet | Matches waiting for a person on corpus-mcp's Zotero page; 558 books were unmatched at deploy | a person, at corpus-mcp's `/admin/zotero` |
+| **Likely missed matches.** A `calibre:` work and a Zotero item that share an ISBN. | drift (reported, never fails); `skipped` if corpus-mcp's books feed sends no `isbns` | Matches waiting for a person on corpus-mcp's Zotero page; 558 books were unmatched at deploy | a person, at corpus-mcp's `/admin/zotero` |
 
 ### Zotero readers (holdings-mcp ↔ corpus-mcp, quote-mcp)
 
@@ -101,8 +101,8 @@ The quote and anchor checks need read-only snapshots. Each is LAN-only, with an 
   first and last seen, so the results can say how long something's been wrong. `holdings_status` and
   `GET /api/checks` also list `zotero_readers`.
 
-On live data at 2026-11-04, before any deploy: five checks `ok`, none failing; `one-work-per-exact-key` at
-`drift` with 41 citekeys, each a work held in both libraries; `likely-missed-matches` `skipped`.
+On live data at 2026-11-04: five checks `ok`, none failing; `one-work-per-exact-key` at
+`drift` with 41 citekeys, each a work held in both libraries; `likely-missed-matches` `ok` with none, across the 72 unmatched books with an ISBN (the other 486 have none in Calibre).
 
 ## Checks after a deploy
 
