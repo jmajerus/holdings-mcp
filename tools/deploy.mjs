@@ -136,20 +136,27 @@ rollback() {
     ln -sfn "$previous" /opt/holdings-mcp/current
     units=1
     install_units "$previous" || units=""
+    store=1
     if [ -f "$pre_migrate" ]; then
       systemctl stop holdings-mcp.service || true
-      # Chained, so the copy never replaces a migrated store that couldn't be set aside. Its -wal and -shm
-      # go with it, renamed alike, since committed writes can still be only in the -wal.
-      if mv "$HOLDINGS_DB" "$HOLDINGS_DB.rolled-back" &&
+      # Chained, so nothing more moves once a step fails. The copy is made ready first, so the live path is
+      # empty only between the last two moves. The -wal and -shm go with the migrated store, renamed alike,
+      # since committed writes can still be only in the -wal.
+      if chown holdings:holdings "$pre_migrate" &&
+        mv "$HOLDINGS_DB" "$HOLDINGS_DB.rolled-back" &&
         { [ ! -f "$HOLDINGS_DB-wal" ] || mv "$HOLDINGS_DB-wal" "$HOLDINGS_DB.rolled-back-wal"; } &&
         { [ ! -f "$HOLDINGS_DB-shm" ] || mv "$HOLDINGS_DB-shm" "$HOLDINGS_DB.rolled-back-shm"; } &&
-        mv "$pre_migrate" "$HOLDINGS_DB" && chown holdings:holdings "$HOLDINGS_DB"; then
+        mv "$pre_migrate" "$HOLDINGS_DB"; then
         echo "restored the store from before the migration; the migrated one is $HOLDINGS_DB.rolled-back"
       else
-        echo "store_restore_failed: the copy from before the migration is $pre_migrate"
+        store=""
       fi
     fi
-    if [ -n "$units" ]; then
+    if [ -z "$store" ]; then
+      # Not restarted: on a missing or half-moved store it would start an empty one.
+      echo "rollback_incomplete=$previous: the store couldn't be put back, so holdings-mcp is left stopped"
+      echo "the copy from before the migration is $pre_migrate; the migrated store is $HOLDINGS_DB, or $HOLDINGS_DB.rolled-back with its -wal and -shm"
+    elif [ -n "$units" ]; then
       systemctl restart holdings-mcp.service || echo "holdings-mcp didn't restart on $previous"
       echo "rolled_back=$previous"
     else

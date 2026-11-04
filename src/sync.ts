@@ -7,6 +7,9 @@ import type { ZoteroClient } from "./zotero.js";
  * recorded in zotero_deletions at the library version now, which is what /zotero/<library>/deleted answers
  * from. The first sync of a library also records Zotero's whole deletion log, so a service that synced from
  * Zotero before switching here still learns of every key deleted since its version.
+ * A key Zotero deletes between the item listing and the deletions request is recorded at the listing's
+ * version. That is past the version of any service syncing from here, so they all learn of it; and since the
+ * library version saved is the listing's, Zotero reports it again next time, at its own version.
  * The library version is saved only after the changes are stored, so an interrupted sync repeats.
  */
 export async function syncLibrary(db: DB, client: ZoteroClient, library: string, log: (text: string) => void = () => {}): Promise<{ changed: number; deleted: number; version: number }> {

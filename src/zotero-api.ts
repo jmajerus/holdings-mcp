@@ -12,11 +12,19 @@ import { type DB, getMeta } from "./db.js";
  *
  * Each answers Last-Modified-Version (the library version the mirror is at) and the listings Total-Results,
  * as Zotero does. Versions are Zotero's own, so a service that synced from Zotero carries on from its version.
- * Items are listed by key, so an item changed while a service pages through a listing doesn't shift the
- * pages after it. A parameter Zotero has and this doesn't (q, tag, sort, …) is refused, never ignored.
+ * A listing's first page (start=0) takes a snapshot of the whole listing, and its later pages come from that
+ * snapshot, so a refresh that lands while a service pages through can't shift the pages and skip an item;
+ * what changed is in the service's next sync. A parameter Zotero has and this doesn't (q, tag, sort, …) is
+ * refused, never ignored.
  */
 
 const LISTING = new Set(["format", "since", "includeTrashed", "itemType", "itemKey", "limit", "start"]);
+
+interface Snapshot { version: string; rows: { key: string; version: number; data: string }[]; at: number }
+/** Listings by library, path, and every parameter but start and limit; a sync pages through one in seconds. */
+const snapshots = new WeakMap<DB, Map<string, Snapshot>>();
+const SNAPSHOT_MS = 10 * 60_000;
+const SNAPSHOTS = 32;
 
 export class ZoteroApiError extends Error {
   constructor(readonly status: number, message: string) {
@@ -76,10 +84,22 @@ export function zoteroApi(db: DB, method: string, url: URL): { status: number; h
     ${params.get("includeTrashed") === "1" ? "" : "AND deleted = 0"}${path === "items/top" ? " AND parent_key IS NULL" : ""}${type.sql}
     ${keys.length ? `AND key IN (${keys.map(() => "?").join(", ")})` : ""}`;
   const args = [library, since, ...type.args, ...keys];
-  const total = db.prepare(`SELECT COUNT(*) FROM zotero_items WHERE ${where}`).pluck().get(...args) as number;
-  const rows = db.prepare(`SELECT key, version, data FROM zotero_items WHERE ${where} ORDER BY key LIMIT ? OFFSET ?`).all(...args, limit, start) as { key: string; version: number; data: string }[];
+  const cache = snapshots.get(db) ?? new Map<string, Snapshot>();
+  snapshots.set(db, cache);
+  const id = [library, path, ...[...params].filter(([k]) => k !== "start" && k !== "limit").sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${k}=${v}`)].join("\n");
+  const at = Date.now();
+  for (const [k, snap] of cache) if (at - snap.at > SNAPSHOT_MS) cache.delete(k);
+  let snap = start === 0 ? undefined : cache.get(id);
+  if (!snap) {
+    const rows = db.prepare(`SELECT key, version, data FROM zotero_items WHERE ${where} ORDER BY key`).all(...args) as Snapshot["rows"];
+    snap = { version, rows, at };
+    cache.delete(id);
+    cache.set(id, snap);
+    if (cache.size > SNAPSHOTS) cache.delete(cache.keys().next().value!);
+  }
+  const rows = snap.rows.slice(start, start + limit);
   const items = rows.map((r) => ({ key: r.key, version: r.version, library: { type: library.startsWith("users/") ? "user" : "group", id: Number(library.split("/")[1]) }, data: JSON.parse(r.data) }));
-  return { status: 200, headers: { ...headers, "total-results": String(total) }, body: items };
+  return { status: 200, headers: { "last-modified-version": snap.version, "total-results": String(snap.rows.length) }, body: items };
 }
 
 export function sendZoteroApi(db: DB, req: http.IncomingMessage, res: http.ServerResponse, url: URL): void {

@@ -22,6 +22,8 @@ class FakeZotero {
   items = new Map<string, { key: string; version: number; data: Record<string, unknown> }>();
   deletions = new Map<string, number>();
   requests: string[] = [];
+  /** Run when /deleted is asked for: a change landing between a sync's two requests. */
+  beforeDeleted?: () => void;
 
   put(key: string, data: Record<string, unknown>) {
     this.version++;
@@ -41,6 +43,8 @@ class FakeZotero {
     const since = Number(url.searchParams.get("since") ?? 0);
     const headers = { "content-type": "application/json", "last-modified-version": String(this.version) };
     if (url.pathname === `/${LIB}/deleted`) {
+      this.beforeDeleted?.();
+      this.beforeDeleted = undefined;
       const items = [...this.deletions].filter(([, v]) => v > since).map(([k]) => k);
       return void res.writeHead(200, headers).end(JSON.stringify({ collections: [], searches: [], items, tags: [], settings: [] }));
     }
@@ -146,6 +150,39 @@ describe("the Zotero mirror at /zotero", () => {
     const deleted = await (await fetch(`${base}/zotero/${LIB}/deleted?since=${zotero.version - 1}`)).json();
     expect(deleted).toMatchObject({ items: ["GONE0001"], collections: [] });
     expect(await (await fetch(`${base}/zotero/${LIB}/deleted?since=${zotero.version}`)).json()).toMatchObject({ items: [] });
+  });
+
+  it("pages through a listing as it was at its first page, though a refresh lands in between", async () => {
+    await refresher.now();
+    const page = (start: number) => fetch(`${base}/zotero/${LIB}/items/top?format=json&includeTrashed=1&since=0&limit=100&start=${start}`);
+    const first = await page(0);
+    const version = first.headers.get("last-modified-version");
+    expect(((await first.json()) as unknown[]).length).toBe(100);
+    // Deleting an item on the first page would move every later item up one place, and B0000100 would be missed.
+    zotero.remove("B0000050");
+    await refresher.now();
+    const second = await page(100);
+    expect(second.headers.get("last-modified-version")).toBe(version);
+    expect(((await second.json()) as { key: string }[]).map((i) => i.key)[0]).toBe("B0000100");
+    // The next sync, from the version the listing gave, learns of the deletion.
+    expect(await (await fetch(`${base}/zotero/${LIB}/deleted?since=${version}`)).json()).toMatchObject({ items: ["B0000050"] });
+  });
+
+  it("passes on a deletion Zotero made between a refresh's two requests", async () => {
+    await refresher.now();
+    const service = openDb(":memory:");
+    await syncLibrary(service, client(`${base}/zotero`), LIB);
+    zotero.put("B0000001", { itemType: "book", title: "Book 1, edited" });
+    zotero.beforeDeleted = () => zotero.remove("B0000002");
+    await refresher.now();
+    // Recorded at the version the listing gave, which is past any version a service syncing from here has.
+    const listed = Number(getMeta(holdings, `zotero_version:${LIB}`));
+    expect(holdings.prepare("SELECT version FROM zotero_deletions WHERE key = 'B0000002'").pluck().get()).toBe(listed);
+    await syncLibrary(service, client(`${base}/zotero`), LIB);
+    expect(service.prepare("SELECT deleted FROM zotero_items WHERE key = 'B0000002'").pluck().get()).toBe(1);
+    // And Zotero reports it again to the next refresh, which records it at the version it really has.
+    await refresher.now();
+    expect(holdings.prepare("SELECT version FROM zotero_deletions WHERE key = 'B0000002'").pluck().get()).toBe(zotero.version);
   });
 
   it("lists a key again once Zotero has it again after deleting it", async () => {
