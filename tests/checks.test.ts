@@ -134,6 +134,12 @@ describe("filed-but-unmatched", () => {
 });
 
 describe("likely-missed-matches", () => {
+  it("matches an ISBN-10 to the same book's ISBN-13", () => {
+    item("AAAA0001", { ISBN: "978-0-306-40615-7" });
+    run([book("main:1", { calibre_uuid: UUID, isbns: ["0306406152"] })], []);
+    expect(result("likely-missed-matches").count).toBe(1);
+  });
+
   it("says it can't tell when the books feed sends no ISBNs, rather than passing", () => {
     run([book("main:1")], []);
     expect(result("likely-missed-matches")).toMatchObject({ result: "skipped", reason: "corpus-mcp's books feed sends no ISBNs" });

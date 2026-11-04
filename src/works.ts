@@ -26,6 +26,14 @@ interface Work {
   year: string | null; citekey: string | null; isbns: string[]; blockers: string[]; candidates: string[];
 }
 
+/** One form for comparing ISBNs: an ISBN-10 as its ISBN-13; anything else as it is. */
+export function isbn13(isbn: string): string {
+  if (!/^\d{9}[\dX]$/.test(isbn)) return isbn;
+  const body = `978${isbn.slice(0, 9)}`;
+  const sum = [...body].reduce((total, digit, i) => total + Number(digit) * (i % 2 ? 3 : 1), 0);
+  return `${body}${(10 - (sum % 10)) % 10}`;
+}
+
 export const workKey = (library: string, key: string) => `zotero:${library}/${key}`;
 
 /** Better BibTeX's citekey, from the item's field or the "Citation Key:" line it writes to Extra (as quote-mcp's src/csl.ts). */
@@ -148,7 +156,10 @@ export function rebuildWorks(db: DB): RebuildResult {
   for (const work of works.values()) {
     if (!work.citekey) work.blockers.push("no_citekey");
     alias(work.citekey, work.key, "citekey");
-    for (const isbn of work.isbns) alias(isbn, work.key, "isbn");
+    for (const isbn of work.isbns) {
+      alias(isbn, work.key, "isbn");
+      alias(isbn13(isbn), work.key, "isbn");
+    }
   }
 
   const retired: string[] = [];

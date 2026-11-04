@@ -1,5 +1,6 @@
 import { checkResults, zoteroReads } from "./checks.js";
 import { type DB, getMeta } from "./db.js";
+import { isbn13 } from "./works.js";
 
 /**
  * What the MCP tools answer: find_work, get_work, and holdings_status. Every work comes with all its
@@ -97,7 +98,10 @@ function keyForms(key: string): string[] {
   const forms = [k];
   if (/^(users|groups)\/\d+\/[A-Z0-9]{8}$/i.test(k)) forms.push(`zotero:${k}`);
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(k)) forms.push(`calibre:${k}`);
-  if (/^[0-9X-]{10,17}$/i.test(k)) forms.push(k.replace(/-/g, "").toUpperCase());
+  if (/^[0-9X-]{10,17}$/i.test(k)) {
+    const isbn = k.replace(/-/g, "").toUpperCase();
+    forms.push(isbn, isbn13(isbn));
+  }
   return forms;
 }
 

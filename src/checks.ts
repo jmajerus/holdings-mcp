@@ -1,7 +1,7 @@
 import { type DB, now } from "./db.js";
 import { type BookEntry, type CountEntry, snapshot } from "./feeds.js";
 import { holdingsFeeds } from "./queries.js";
-import { workKey } from "./works.js";
+import { isbn13, workKey } from "./works.js";
 
 /**
  * What must hold between the services (docs/cross-service-checks.md). Each service tests its own logic; these
@@ -121,10 +121,10 @@ export const CHECKS: Check[] = [
       if (books.length && !books.some((b) => b.isbns?.length)) throw new Error("corpus-mcp's books feed sends no ISBNs");
       const items = new Map<string, string[]>();
       for (const w of db.prepare("SELECT key, isbns FROM works WHERE kind = 'zotero' AND isbns != '[]'").all() as { key: string; isbns: string }[]) {
-        for (const isbn of JSON.parse(w.isbns) as string[]) items.set(isbn, [...items.get(isbn) ?? [], w.key]);
+        for (const isbn of new Set((JSON.parse(w.isbns) as string[]).map(isbn13))) items.set(isbn, [...items.get(isbn) ?? [], w.key]);
       }
       return calibreWorks(db).flatMap((w) => {
-        const shared = [...new Set((JSON.parse(w.isbns) as string[]).flatMap((isbn) => items.get(isbn) ?? []))];
+        const shared = [...new Set((JSON.parse(w.isbns) as string[]).flatMap((isbn) => items.get(isbn13(isbn)) ?? []))];
         return shared.length ? [{ ref: w.key, detail: `"${w.title}" shares an ISBN with ${shared.join(", ")}.`, severity: "drift" as const, allowanceMs: null }] : [];
       });
     },

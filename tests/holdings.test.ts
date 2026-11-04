@@ -10,7 +10,7 @@ import { feedUrl, FEEDS, recordZotero } from "../src/feeds.js";
 import { ToolError, findWork, getWork, holdingsStatus } from "../src/queries.js";
 import { refresh } from "../src/refresh.js";
 import { serveHttp } from "../src/server.js";
-import { isbnsOf } from "../src/works.js";
+import { isbn13, isbnsOf } from "../src/works.js";
 
 const LIB = "users/827407";
 const BOOK_UUID = "f2b79da7-0000-4000-8000-000000000001";
@@ -251,6 +251,15 @@ describe("feeds", () => {
     counts();
   });
 
+  it("finds a work by either form of its ISBN", async () => {
+    addItem(db, "TENF0001", { itemType: "book", title: "Ten Form", ISBN: "0-306-40615-2" });
+    addItem(db, "THIR0001", { itemType: "book", title: "Thirteen Form", ISBN: "978-0-8044-2957-3" });
+    await refresh(db, { zotero: [], env, force: true });
+    expect(getWork(db, "9780306406157")).toMatchObject({ title: "Ten Form" });
+    expect(getWork(db, "0306406152")).toMatchObject({ title: "Ten Form" });
+    expect(getWork(db, "080442957X")).toMatchObject({ title: "Thirteen Form" });
+  });
+
   it("adds a feed's path to a base URL and leaves a full URL alone", () => {
     const [booksFeed] = FEEDS;
     expect(feedUrl(booksFeed, { HOLDINGS_BOOKS_URL: "http://corpus-mcp.localdomain:8000" })).toBe("http://corpus-mcp.localdomain:8000/api/holdings/books");
@@ -260,6 +269,9 @@ describe("feeds", () => {
 
   it("reads ISBNs however Zotero holds them", () => {
     expect(isbnsOf("978-1-0981-5133-0 0262011530; 123")).toEqual(["9781098151330", "0262011530"]);
+    expect(isbn13("0306406152")).toBe("9780306406157");
+    expect(isbn13("080442957X")).toBe("9780804429573");
+    expect(isbn13("9791234567896")).toBe("9791234567896");
   });
 });
 
