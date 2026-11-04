@@ -247,7 +247,7 @@ describe("feeds", () => {
     const status = holdingsStatus(db);
     expect(status.works).toMatchObject({ calibre_only: 2, quotes_unmatched: 1, quotes_ambiguous: 1 });
     expect(status.unmatched_books.map((b) => b.book_ids[0]).sort()).toEqual(["main:42", "scans:7"]);
-    expect(status.problems[0]).toMatch(/GONE0001/);
+    expect(status.checks.find((c) => c.name === "items-exist")?.examples[0].detail).toMatch(/GONE0001/);
     counts();
   });
 

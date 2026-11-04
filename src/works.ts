@@ -55,8 +55,6 @@ export function isbnsOf(text: unknown): string[] {
 
 export interface RebuildResult {
   works: number;
-  /** Feed entries whose Zotero item isn't in the mirror and that had no interim key to fall back on. */
-  orphans: string[];
   /** Interim keys newly recorded as former keys. */
   retired: string[];
 }
@@ -72,7 +70,6 @@ export function rebuildWorks(db: DB): RebuildResult {
   const holdings: { work_key: string; form: string; ref: string; detail: unknown }[] = [];
   /** Where each Calibre book went, by UUID: its Zotero item's work, or its own. */
   const bookWorks = new Map<string, string>();
-  const orphans: string[] = [];
   const alias = (key: string | null | undefined, work_key: string, kind: string) => key && keys.push({ key, work_key, kind });
 
   for (const item of items) {
@@ -107,7 +104,6 @@ export function rebuildWorks(db: DB): RebuildResult {
           citekey: book.citekey ?? null, isbns: book.isbns ?? [], blockers: ["not_in_zotero"], candidates: [],
         });
       }
-      if (matched) orphans.push(`book ${book.book_id} is matched to ${matched}, which isn't in the mirror`);
     }
     const work = works.get(target)!;
     if (!work.citekey && book.citekey) work.citekey = book.citekey;
@@ -129,17 +125,14 @@ export function rebuildWorks(db: DB): RebuildResult {
     // A work quoted from a Calibre book joins that book's work: an exact link, not a guess from its title.
     let target = matched && works.get(matched)?.kind === "zotero" ? matched : (entry.calibre_uuid && bookWorks.get(entry.calibre_uuid)) || null;
     if (!target) {
-      if (entry.work_id === undefined) {
-        orphans.push(`quote-mcp's quotes from ${matched} can't be placed: the item isn't in the mirror and the feed sent no work_id`);
-        continue;
-      }
+      // Reported by the items-exist check (src/checks.ts).
+      if (entry.work_id === undefined) continue;
       target = `quote:${entry.work_id}`;
       const candidates = (entry.candidates ?? []).map((c) => `zotero:${c}`);
       works.set(target, {
         key: target, kind: "quote", item_type: null, title: entry.title ?? "(untitled)", creators: entry.authors ?? [], year: yearOf(entry.year),
         citekey: entry.citekey ?? null, isbns: [], blockers: [entry.match === "ambiguous" ? "ambiguous_edition" : "not_in_zotero"], candidates,
       });
-      if (matched) orphans.push(`quote-mcp work ${entry.work_id} is matched to ${matched}, which isn't in the mirror`);
     }
     const work = works.get(target)!;
     if (!work.citekey && entry.citekey) work.citekey = entry.citekey;
@@ -190,5 +183,5 @@ export function rebuildWorks(db: DB): RebuildResult {
     // Former keys keep resolving, for as long as the work they moved to exists.
     db.exec("INSERT OR IGNORE INTO work_keys (key, work_key, kind) SELECT f.key, f.work_key, 'former' FROM former_keys f JOIN works w ON w.key = f.work_key");
   })();
-  return { works: works.size, orphans, retired };
+  return { works: works.size, retired };
 }

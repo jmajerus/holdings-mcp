@@ -203,6 +203,7 @@ describe("the Zotero mirror at /zotero", () => {
     expect((await fetch(`${base}/zotero/${LIB}/items`, { method: "POST" })).status).toBe(405);
     expect((await fetch(`${base}/zotero/${LIB}/items`, { headers: { "cf-ray": "1", "cf-access-jwt-assertion": token } })).status).toBe(404);
     expect((await fetch(`${base}/api/refresh`, { method: "POST", headers: { "cf-ray": "1", "cf-access-jwt-assertion": token } })).status).toBe(404);
+    expect((await fetch(`${base}/api/checks`, { headers: { "cf-ray": "1", "cf-access-jwt-assertion": token } })).status).toBe(404);
   });
 
   it("learns Zotero's whole deletion log the first time it syncs a library it already mirrored", async () => {
