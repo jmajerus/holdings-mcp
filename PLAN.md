@@ -252,13 +252,14 @@ The dev-briefs `holdings-and-quotes.md` in corpus-mcp and quote-mcp
   without a resync, and their counts match the mirror's. zotero-mcp still reads Zotero directly. Waiting on
   the user: whether quote-mcp's `add_quote` calls `POST /api/refresh` when a work key isn't in its mirror
   yet.
-- **Phase 5 (started 2026-11-04):** no code here or in terminology-mcp. `human-work` is live in
-  terminology-mcp and quote-mcp follows it. quote-mcp's PR stores the sets from the feed; deploy it first,
-  then create `despair` in terminology-mcp's `/sets` page, and `vocab/sets.json` goes a release later.
-  corpus-mcp's PR follows `cc-subjects` directly (its overlay is empty, so nothing migrates), and
-  `add_provisional_term` calls `propose_term`. `cc-subjects` keeps `proposalSource: required` (the user's
-  decision); one setting changes that if research terms need it. Concept Clusters' push to corpus-mcp
-  retires after the switch has run cleanly.
+- **Phase 5 (deployed 2026-11-04):** no code here. quote-mcp #15 stores `human-work`'s sets from
+  terminology-mcp's feed; `despair` is created there (`s_6eeebcbbfc7a44b3af4278c3dbf06825`) and both services
+  expand it to the same 8 concepts. `vocab/sets.json` is out of effect and leaves after a release. corpus-mcp
+  #16 follows `cc-subjects` directly (174 assignable tags) and its overlay is gone; `add_provisional_term`
+  calls `propose_term`. `cc-subjects` keeps `proposalSource: required` (the user's decision); `human-work` got
+  the settings its import missed (`slugScope: scheme`, `proposalSource: optional`). Remaining: Concept
+  Clusters switches its push off and, after a trial run, merges `retire-taxonomy-push`; then corpus-mcp
+  corrects what `off` means and, if the user agrees, removes its intake route and push token.
 - **Deploys** in all three repos roll back on any failure after the release switch, units included
   (holdings-mcp #1, quote-mcp #7, corpus-mcp #12). quote-mcp, and holdings-mcp from phase 4, also put
   back the store from before a migration that changed its schema.
