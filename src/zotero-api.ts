@@ -107,7 +107,7 @@ export function sendZoteroApi(db: DB, req: http.IncomingMessage, res: http.Serve
   try {
     const r = zoteroApi(db, req.method ?? "GET", url);
     // The first page only: one write per sync request, not per page. It's what shows a service switched here.
-    if (!url.searchParams.get("start") || url.searchParams.get("start") === "0") {
+    if (!Number(url.searchParams.get("start"))) {
       recordZoteroRead(db, req.socket.remoteAddress, /^\/zotero\/([^/]+\/\d+)/.exec(url.pathname)![1], Number(url.searchParams.get("since") ?? 0));
     }
     res.writeHead(r.status, { "content-type": "application/json", "cache-control": "no-store", ...r.headers }).end(JSON.stringify(r.body));

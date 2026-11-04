@@ -140,6 +140,13 @@ describe("likely-missed-matches", () => {
     expect(result("likely-missed-matches").count).toBe(1);
   });
 
+  it("matches a book's ISBN however the feed writes it", () => {
+    item("AAAA0001", { ISBN: "9780306406157" });
+    run([book("main:1", { calibre_uuid: UUID, isbns: ["978-0-306-40615-7"] })], []);
+    expect(result("likely-missed-matches").count).toBe(1);
+    expect(db.prepare("SELECT work_key FROM work_keys WHERE key = '9780306406157' AND work_key = ?").get(`calibre:${UUID}`)).toBeTruthy();
+  });
+
   it("says it can't tell when the books feed sends no ISBNs, rather than passing", () => {
     run([book("main:1")], []);
     expect(result("likely-missed-matches")).toMatchObject({ result: "skipped", reason: "corpus-mcp's books feed sends no ISBNs" });
@@ -260,6 +267,8 @@ describe("over HTTP", () => {
     expect(reads()).toEqual([]);
     await fetch(`${base}/zotero/${LIB}/items?q=x`);
     expect(reads()).toEqual([]);
+    await fetch(`${base}/zotero/${LIB}/items?since=2&limit=1&start=00`);
+    expect(reads()).toEqual([{ address: "127.0.0.1", library: LIB, last_since: 2 }]);
     await fetch(`${base}/zotero/${LIB}/items?since=3&limit=1`);
     expect(reads()).toEqual([{ address: "127.0.0.1", library: LIB, last_since: 3 }]);
     await fetch(`${base}/zotero/${LIB}/deleted?since=6`);

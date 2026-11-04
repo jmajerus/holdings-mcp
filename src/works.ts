@@ -101,6 +101,7 @@ export function rebuildWorks(db: DB): RebuildResult {
   }
 
   for (const book of books) {
+    const isbns = isbnsOf((book.isbns ?? []).join(" "));
     const matched = book.zotero ? workKey(book.zotero.library, book.zotero.key) : null;
     let target = matched && works.get(matched)?.kind === "zotero" ? matched : null;
     const interim = book.calibre_uuid ? `calibre:${book.calibre_uuid}` : book.book_id;
@@ -109,13 +110,13 @@ export function rebuildWorks(db: DB): RebuildResult {
       if (!works.has(target)) {
         works.set(target, {
           key: target, kind: "calibre", item_type: "book", title: book.title, creators: book.authors ?? [], year: yearOf(book.year),
-          citekey: book.citekey ?? null, isbns: book.isbns ?? [], blockers: ["not_in_zotero"], candidates: [],
+          citekey: book.citekey ?? null, isbns, blockers: ["not_in_zotero"], candidates: [],
         });
       }
     }
     const work = works.get(target)!;
     if (!work.citekey && book.citekey) work.citekey = book.citekey;
-    for (const isbn of book.isbns ?? []) if (!work.isbns.includes(isbn)) work.isbns.push(isbn);
+    for (const isbn of isbns) if (!work.isbns.includes(isbn)) work.isbns.push(isbn);
     if (book.calibre_uuid) {
       alias(interim, target, "calibre");
       bookWorks.set(book.calibre_uuid, target);
