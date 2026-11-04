@@ -244,12 +244,14 @@ The dev-briefs `holdings-and-quotes.md` in corpus-mcp and quote-mcp
     or chapter author (a person accepts with `quote-mcp proposals`), and `delete_quote` for agent and
     corpus quotes. Ids are never reused after a delete. Schema 4.
   Phase 3 is done.
-- **Phase 4:** holdings-mcp's side is merged and deployed (#2, `d5ccfa9`): the `/zotero` routes, deletions
-  recorded at their library version (schema 2), `POST /api/refresh`, and a 2-minute refresh. At deploy,
-  `users/827407` was at version 2525 (1,691 items, 322 of them notes, 359 deleted keys) and `groups/61098`
-  at 388 (618 items, 27 deleted keys). Next, corpus-mcp and quote-mcp each set their Zotero API base URL
-  to it (`CORPUS_ZOTERO_API`, `QUOTE_ZOTERO_API`). Waiting on the user: whether quote-mcp's `add_quote`
-  calls `POST /api/refresh` when a work key isn't in its mirror yet.
+- **Phase 4 (done, 2026-11-04):** holdings-mcp #2 (`d5ccfa9`) serves the `/zotero` routes, records
+  deletions at their library version (schema 2), takes `POST /api/refresh`, and refreshes every 2 minutes.
+  At deploy, `users/827407` was at version 2525 (1,691 items, 322 of them notes, 359 deleted keys) and
+  `groups/61098` at 388 (618 items, 27 deleted keys). corpus-mcp (`CORPUS_ZOTERO_API`, 650ae52) and
+  quote-mcp (`QUOTE_ZOTERO_API`, 13c59bf) now sync through it; both carried on from their stored versions
+  without a resync, and their counts match the mirror's. zotero-mcp still reads Zotero directly. Waiting on
+  the user: whether quote-mcp's `add_quote` calls `POST /api/refresh` when a work key isn't in its mirror
+  yet.
 - **Deploys** in all three repos roll back on any failure after the release switch, units included
   (holdings-mcp #1, quote-mcp #7, corpus-mcp #12). quote-mcp, and holdings-mcp from phase 4, also put
   back the store from before a migration that changed its schema.
