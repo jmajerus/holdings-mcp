@@ -153,7 +153,8 @@ rollback() {
       fi
     fi
     if [ -z "$store" ]; then
-      # Not restarted: on a missing or half-moved store it would start an empty one.
+      # Not restarted, and the nightly backup stopped too: either would open a missing store as a new, empty one.
+      systemctl stop holdings-backup.timer || true
       echo "rollback_incomplete=$previous: the store couldn't be put back, so holdings-mcp is left stopped"
       echo "the copy from before the migration is $pre_migrate; the migrated store is $HOLDINGS_DB, or $HOLDINGS_DB.rolled-back with its -wal and -shm"
     elif [ -n "$units" ]; then
