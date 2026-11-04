@@ -9,13 +9,15 @@ import Database from "better-sqlite3";
  *   would from Zotero (src/zotero-api.ts);
  * - feeds holds each feed's last good snapshot, its ETag, and when it last answered (src/feeds.ts);
  * - works, work_keys, holdings, and works_fts are rebuilt from those after every refresh (src/works.ts);
+ * - checks and check_findings hold the last cross-service checks (src/checks.ts), and zotero_readers who last
+ *   read /zotero; all of them refill themselves after a restore, though a finding's first_seen starts over;
  * - former_keys records interim keys (calibre:…, quote:…) whose work was later filed in Zotero, so they keep
  *   resolving. It can't be rebuilt from the sources, so back it up with the rest.
  */
 
 export type DB = Database.Database;
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -60,6 +62,19 @@ CREATE TABLE IF NOT EXISTS holdings (
 CREATE INDEX IF NOT EXISTS holdings_form ON holdings (form);
 
 CREATE TABLE IF NOT EXISTS former_keys (key TEXT PRIMARY KEY COLLATE NOCASE, work_key TEXT NOT NULL, at TEXT NOT NULL);
+
+-- The last run of each cross-service check (src/checks.ts). result: ok, drift, fail, or skipped (with its reason).
+CREATE TABLE IF NOT EXISTS checks (
+  name TEXT PRIMARY KEY, result TEXT NOT NULL, fix TEXT NOT NULL, feeds TEXT NOT NULL, reason TEXT, at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS check_findings (
+  check_name TEXT NOT NULL, ref TEXT NOT NULL, detail TEXT NOT NULL, severity TEXT NOT NULL,
+  first_seen TEXT NOT NULL, last_seen TEXT NOT NULL, PRIMARY KEY (check_name, ref)
+);
+-- Who reads /zotero: by client address and library, when last, and the since it asked from.
+CREATE TABLE IF NOT EXISTS zotero_readers (
+  address TEXT NOT NULL, library TEXT NOT NULL, last_read TEXT NOT NULL, last_since INTEGER NOT NULL, PRIMARY KEY (address, library)
+);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS works_fts USING fts5(key UNINDEXED, title, creators, tokenize = 'porter unicode61 remove_diacritics 2');
 `;

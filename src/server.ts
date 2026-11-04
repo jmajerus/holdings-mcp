@@ -4,6 +4,7 @@ import path from "node:path";
 import type { JWTVerifyGetKey } from "jose";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { checkResults, checkSummary, zoteroReads } from "./checks.js";
 import type { DB } from "./db.js";
 import { AccessError, authorizeRequest, requestAccessConfig, type RequestAccessConfig } from "./http-access.js";
 import { VERSION, createServer } from "./mcp.js";
@@ -15,7 +16,8 @@ import { sendZoteroApi } from "./zotero-api.js";
  * Streamable HTTP at /mcp (stateless: a fresh server per request, JSON responses) and /health, on
  * quote-mcp's pattern. Requests through Cloudflare need a verified Access token; direct LAN requests don't.
  * On the LAN only (a 404 through Access): the Zotero mirror at /zotero (src/zotero-api.ts), and
- * POST /api/refresh, which refreshes now, so a service that just wrote to Zotero can see it here.
+ * POST /api/refresh, which refreshes now, so a service that just wrote to Zotero can see it here; and
+ * GET /api/checks, the cross-service checks in full (src/checks.ts).
  */
 
 export interface ServeOptions {
@@ -45,13 +47,14 @@ export function serveHttp(db: DB, options: ServeOptions): Promise<http.Server> {
         const status = holdingsStatus(db);
         const errors = status.feeds.filter((f) => f.error).map((f) => f.error);
         res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({
-          ok: true, version: VERSION, works: status.works.total, last_refresh: status.last_refresh, errors, deployed: readDeployed(),
+          ok: true, version: VERSION, works: status.works.total, last_refresh: status.last_refresh, errors, checks: checkSummary(db), deployed: readDeployed(),
         }));
         return;
       }
-      if (url.pathname.startsWith("/zotero/") || url.pathname === "/api/refresh") {
+      if (url.pathname.startsWith("/zotero/") || url.pathname === "/api/refresh" || url.pathname === "/api/checks") {
         if (via !== "lan") return void res.writeHead(404, { "content-type": "application/json" }).end(JSON.stringify({ error: "Not found." }));
         if (url.pathname === "/api/refresh") return await refreshNow(db, options.refresher, req, res);
+        if (url.pathname === "/api/checks") return sendChecks(db, req, res, url);
         return sendZoteroApi(db, req, res, url);
       }
       if (url.pathname !== "/mcp") {
@@ -100,6 +103,16 @@ async function refreshNow(db: DB, refresher: Refresher | undefined, req: http.In
   const r = await refresher.now();
   const errors = holdingsStatus(db).feeds.filter((f) => f.error).map((f) => f.error);
   res.writeHead(200, json).end(JSON.stringify({ changed: r.changed, ...(r.works !== undefined ? { works: r.works } : {}), errors }));
+}
+
+function sendChecks(db: DB, req: http.IncomingMessage, res: http.ServerResponse, url: URL): void {
+  const json = { "content-type": "application/json", "cache-control": "no-store" };
+  if (req.method !== "GET") return void res.writeHead(405, { ...json, allow: "GET" }).end(JSON.stringify({ error: "GET the checks." }));
+  const since = url.searchParams.get("since") ?? undefined;
+  if (since !== undefined && Number.isNaN(Date.parse(since))) return void res.writeHead(400, json).end(JSON.stringify({ error: `since must be a time, not "${since}".` }));
+  // Findings store ISO times, so a since in any other form compares by the instant it means.
+  const iso = since === undefined ? undefined : new Date(since).toISOString();
+  res.writeHead(200, json).end(JSON.stringify({ summary: checkSummary(db), checks: checkResults(db, iso), zotero_readers: zoteroReads(db) }));
 }
 
 export async function serveStdio(db: DB): Promise<void> {

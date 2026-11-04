@@ -1,4 +1,5 @@
 import type http from "node:http";
+import { recordZoteroRead } from "./checks.js";
 import { type DB, getMeta } from "./db.js";
 
 /**
@@ -105,6 +106,10 @@ export function zoteroApi(db: DB, method: string, url: URL): { status: number; h
 export function sendZoteroApi(db: DB, req: http.IncomingMessage, res: http.ServerResponse, url: URL): void {
   try {
     const r = zoteroApi(db, req.method ?? "GET", url);
+    // The first page only: one write per sync request, not per page. It's what shows a service switched here.
+    if (!Number(url.searchParams.get("start"))) {
+      recordZoteroRead(db, req.socket.remoteAddress, /^\/zotero\/([^/]+\/\d+)/.exec(url.pathname)![1], Number(url.searchParams.get("since") ?? 0));
+    }
     res.writeHead(r.status, { "content-type": "application/json", "cache-control": "no-store", ...r.headers }).end(JSON.stringify(r.body));
   } catch (error) {
     if (!(error instanceof ZoteroApiError)) throw error;

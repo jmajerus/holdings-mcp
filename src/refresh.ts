@@ -1,3 +1,4 @@
+import { runChecks } from "./checks.js";
 import { type DB, now, setMeta } from "./db.js";
 import { FEEDS, feedUrl, pollFeed, recordZotero } from "./feeds.js";
 import { syncLibrary } from "./sync.js";
@@ -6,7 +7,7 @@ import { ZoteroClient, type ZoteroConfig } from "./zotero.js";
 
 /**
  * One refresh: each Zotero library brought up to date, each feed polled, and the works rebuilt when any of
- * them changed (or when force is set). The server runs one every HOLDINGS_REFRESH_SECONDS; a failing
+ * them changed (or when force is set), then the cross-service checks. The server runs one every HOLDINGS_REFRESH_SECONDS; a failing
  * source is recorded on its feed and the others carry on.
  */
 
@@ -42,11 +43,11 @@ export async function refresh(db: DB, options: RefreshOptions): Promise<{ change
     }
   }
   setMeta(db, "last_refresh", now());
-  if (!changed) return { changed };
-  const r = rebuildWorks(db);
-  setMeta(db, "orphans", JSON.stringify(r.orphans));
-  if (r.retired.length) log(`Filed since the last refresh: ${r.retired.join(", ")}.\n`);
-  return { changed, works: r.works, retired: r.retired };
+  const r = changed ? rebuildWorks(db) : null;
+  if (r?.retired.length) log(`Filed since the last refresh: ${r.retired.join(", ")}.\n`);
+  // Every refresh, changed or not: drift ages, feeds go stale, and readers stop reading without anything changing here.
+  runChecks(db, options.env);
+  return r ? { changed, works: r.works, retired: r.retired } : { changed };
 }
 
 export type RefreshResult = Awaited<ReturnType<typeof refresh>>;

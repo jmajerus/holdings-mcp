@@ -1,4 +1,6 @@
+import { checkResults, zoteroReads } from "./checks.js";
 import { type DB, getMeta } from "./db.js";
+import { isbn13 } from "./works.js";
 
 /**
  * What the MCP tools answer: find_work, get_work, and holdings_status. Every work comes with all its
@@ -96,7 +98,10 @@ function keyForms(key: string): string[] {
   const forms = [k];
   if (/^(users|groups)\/\d+\/[A-Z0-9]{8}$/i.test(k)) forms.push(`zotero:${k}`);
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(k)) forms.push(`calibre:${k}`);
-  if (/^[0-9X-]{10,17}$/i.test(k)) forms.push(k.replace(/-/g, "").toUpperCase());
+  if (/^[0-9X-]{10,17}$/i.test(k)) {
+    const isbn = k.replace(/-/g, "").toUpperCase();
+    forms.push(isbn, isbn13(isbn));
+  }
   return forms;
 }
 
@@ -175,10 +180,15 @@ export function findWork(db: DB, args: FindArgs) {
 }
 
 /** Each feed's freshness and errors, what the store holds, and what still needs a person. */
-export function holdingsStatus(db: DB, staleAfterSeconds = 1800) {
-  const feeds = (db.prepare("SELECT name, url, entries, checked_at, ok_at, changed_at, error FROM feeds ORDER BY name").all() as
+/** Each source and how fresh it is: stale after half an hour without a good answer. */
+export function holdingsFeeds(db: DB, staleAfterSeconds = 1800) {
+  return (db.prepare("SELECT name, url, entries, checked_at, ok_at, changed_at, error FROM feeds ORDER BY name").all() as
     { name: string; url: string | null; entries: number | null; checked_at: string | null; ok_at: string | null; changed_at: string | null; error: string | null }[])
     .map((f) => ({ ...f, stale: !f.ok_at || Date.now() - Date.parse(f.ok_at) > staleAfterSeconds * 1000 }));
+}
+
+export function holdingsStatus(db: DB, staleAfterSeconds = 1800) {
+  const feeds = holdingsFeeds(db, staleAfterSeconds);
   const count = (sql: string) => (db.prepare(sql).get() as { n: number }).n;
   const unmatchedBooks = db.prepare(`SELECT w.key, w.title, w.creators, (SELECT group_concat(h.ref, ', ') FROM holdings h WHERE h.work_key = w.key AND h.form IN ('text', 'file')) AS book_ids
     FROM works w WHERE w.kind = 'calibre' ORDER BY w.title COLLATE NOCASE LIMIT 50`).all() as { key: string; title: string; creators: string; book_ids: string }[];
@@ -200,6 +210,7 @@ export function holdingsStatus(db: DB, staleAfterSeconds = 1800) {
     },
     former_keys: count("SELECT COUNT(*) AS n FROM former_keys"),
     unmatched_books: unmatchedBooks.map((b) => ({ key: b.key, title: b.title, creators: JSON.parse(b.creators) as string[], book_ids: b.book_ids?.split(", ") ?? [] })),
-    problems: JSON.parse(getMeta(db, "orphans") ?? "[]") as string[],
+    checks: checkResults(db),
+    zotero_readers: zoteroReads(db),
   };
 }

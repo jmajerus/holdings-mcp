@@ -1,7 +1,7 @@
 # Cross-service checks
 
-**Status: proposed 2026-11-03, revised 2026-11-04 after phase 4. Nothing here is built, apart from
-the `problems` list in `holdings_status`, which the first checks replace.**
+**Status: proposed 2026-11-03, revised 2026-11-04 after phase 4. Step 1 of "Order of work" is built
+(`src/checks.ts`); the quote and anchor checks and the deploy step aren't.**
 
 Each service tests its own logic, and each passes. The bugs found so far
 live in the seams, where one service assumes what another has already
@@ -46,20 +46,20 @@ These need nothing beyond what holdings-mcp reads today.
 
 | Check | Severity | What it catches | Fix in |
 |---|---|---|---|
-| **Items that exist.** Every Zotero item the books or counts feed names is in holdings-mcp's mirror and not trashed or deleted, and every counts entry is placed on a work. Replaces the `problems` lines `holdings_status` reports today ("matched to …, which isn't in the mirror", "can't be placed"). | fail | A book or quotes still tied to an item trashed in Zotero; quotes lost from the holdings because their entry couldn't be placed | corpus-mcp or quote-mcp |
+| **Items that exist.** Every Zotero item the books or counts feed names is a work in holdings-mcp's mirror (not trashed, deleted, or missing). An entry with no `work_id` whose item is gone isn't placed on any work, and the finding says so. Replaces the `problems` list `holdings_status` had. | drift (an hour), then fail: quote-mcp's counts only learn of a trashed item at its next import, up to half an hour later | A book or quotes still tied to an item trashed in Zotero; quotes lost from the holdings because their entry couldn't be placed | corpus-mcp or quote-mcp |
 | **One quote-mcp work per item.** No two quote-mcp works in the counts feed name the same Zotero item. | fail | A filing that should have merged works (`former_work_ids`) and didn't | quote-mcp |
 | **One work per exact key.** No Zotero item key, Calibre UUID, Calibre book id, or `quote:` id names two works. Citekeys two works share are reported as drift (two libraries' Better BibTeX keys colliding, or duplicate items); ISBNs aren't checked. | fail; drift for citekeys | An exact key that resolves to the wrong work; a former key reused | holdings-mcp; Zotero for citekeys |
 | **Filed but unmatched.** A `calibre:` work whose UUID is in a Zotero item's Extra (`Calibre UUID: …`) in holdings-mcp's mirror. Each finding names the item's library. | drift (an hour), then fail | corpus-mcp's mirror lagging. An item filed in `groups/61098` can never match: corpus-mcp matches against one library (`CORPUS_ZOTERO_LIBRARY`, `users/827407`), and holdings-mcp mirrors two. Until corpus-mcp reads both, those findings stay `fail` and say why. | corpus-mcp |
-| **Likely missed matches.** A `calibre:` work and a Zotero item that share an ISBN. | drift (reported, never fails) | Matches waiting for a person on corpus-mcp's Zotero page; 558 books were unmatched at deploy | a person, at corpus-mcp's `/admin/zotero` |
+| **Likely missed matches.** A `calibre:` work and a Zotero item that share an ISBN. | drift (reported, never fails); `skipped` while corpus-mcp's books feed sends no `isbns`, as it doesn't yet | Matches waiting for a person on corpus-mcp's Zotero page; 558 books were unmatched at deploy | a person, at corpus-mcp's `/admin/zotero` |
 
 ### Zotero readers (holdings-mcp ↔ corpus-mcp, quote-mcp)
 
-holdings-mcp records, for each client address, when it last read `/zotero/<library>/…` and the
-`since` it asked from. That needs nothing from the other services.
+holdings-mcp records, for each client address and library, when it last read `/zotero/<library>/…` (a
+listing's first page, or `/deleted`) and the `since` it asked from. That needs nothing from the other services.
 
 | Check | Severity | What it catches | Fix in |
 |---|---|---|---|
-| **Readers in step.** Each service configured as a reader (`HOLDINGS_ZOTERO_READERS`, e.g. `quote-mcp=192.168.1.210:1800`, one entry per service: address and sync interval in seconds) has read `/zotero` within three of its intervals. The `since` it last asked from is shown beside it, so a reader stuck on an old version is visible too. | drift (three intervals), then fail | A service that went back to reading zotero.org (a lost env line, a deploy that didn't push it), or whose sync timer stopped | the reader's repository |
+| **Readers in step.** Each service configured as a reader (`HOLDINGS_ZOTERO_READERS`, e.g. `corpus-mcp=192.168.1.179:300,quote-mcp=192.168.1.210:1800`: address and sync interval in seconds) has read `/zotero` within three of its intervals. The `since` it last asked from is shown beside it, so a reader stuck on an old version is visible too. | drift (three intervals), then fail | A service that went back to reading zotero.org (a lost env line, a deploy that didn't push it), or whose sync timer stopped | the reader's repository |
 
 ### Quotes and anchors (corpus-mcp ↔ quote-mcp)
 
@@ -97,8 +97,12 @@ The quote and anchor checks need read-only snapshots. Each is LAN-only, with an 
 - **`/health`** gains a summary: how many checks are `ok`, `drift`, `fail`, and `skipped`, and
   the names of those failing, so the state is visible over HTTP without MCP.
 - **`GET /api/checks`** (LAN only) returns the full results, as `holdings_status` does.
-- **A `checks` table** keeps findings with when each was first and last
-  seen, so the results can say how long something's been wrong.
+- **`checks` and `check_findings` tables** keep each check's last result, and findings with when each was
+  first and last seen, so the results can say how long something's been wrong. `holdings_status` and
+  `GET /api/checks` also list `zotero_readers`.
+
+On live data at 2026-11-04, before any deploy: five checks `ok`, none failing; `one-work-per-exact-key` at
+`drift` with 41 citekeys, each a work held in both libraries; `likely-missed-matches` `skipped`.
 
 ## Checks after a deploy
 
@@ -124,9 +128,8 @@ anchor. The verified-without-an-anchor check should fail on it.
 
 ## Order of work
 
-1. In holdings-mcp alone: the `checks` table and results in `holdings_status`, `/health` and
-   `GET /api/checks`; the works-and-keys checks (replacing `problems`); and the Zotero-readers
-   check.
+1. Built. In holdings-mcp alone: the tables and results in `holdings_status`, `/health` and
+   `GET /api/checks`; the works-and-keys checks (replacing `problems`); and the Zotero-readers check.
 2. The snapshots: ask corpus-mcp whether its changes feed is a full history, and add
    `GET /api/holdings/quotes` in quote-mcp; then the quote and anchor checks.
 3. The deploy step (refresh, then new findings since the switch) in corpus-mcp's and quote-mcp's
