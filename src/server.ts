@@ -8,10 +8,14 @@ import type { DB } from "./db.js";
 import { AccessError, authorizeRequest, requestAccessConfig, type RequestAccessConfig } from "./http-access.js";
 import { VERSION, createServer } from "./mcp.js";
 import { holdingsStatus } from "./queries.js";
+import type { Refresher } from "./refresh.js";
+import { sendZoteroApi } from "./zotero-api.js";
 
 /**
  * Streamable HTTP at /mcp (stateless: a fresh server per request, JSON responses) and /health, on
  * quote-mcp's pattern. Requests through Cloudflare need a verified Access token; direct LAN requests don't.
+ * On the LAN only (a 404 through Access): the Zotero mirror at /zotero (src/zotero-api.ts), and
+ * POST /api/refresh, which refreshes now, so a service that just wrote to Zotero can see it here.
  */
 
 export interface ServeOptions {
@@ -19,6 +23,7 @@ export interface ServeOptions {
   accessKeys?: JWTVerifyGetKey;
   host: string;
   port: number;
+  refresher?: Refresher;
 }
 
 /** What tools/deploy.mjs last installed (branch, commit, when), written beside the store, so read per request. */
@@ -35,7 +40,7 @@ export function serveHttp(db: DB, options: ServeOptions): Promise<http.Server> {
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     try {
-      await authorizeRequest(req, url.pathname, access, options.accessKeys);
+      const { via } = await authorizeRequest(req, url.pathname, access, options.accessKeys);
       if (url.pathname === "/health") {
         const status = holdingsStatus(db);
         const errors = status.feeds.filter((f) => f.error).map((f) => f.error);
@@ -43,6 +48,11 @@ export function serveHttp(db: DB, options: ServeOptions): Promise<http.Server> {
           ok: true, version: VERSION, works: status.works.total, last_refresh: status.last_refresh, errors, deployed: readDeployed(),
         }));
         return;
+      }
+      if (url.pathname.startsWith("/zotero/") || url.pathname === "/api/refresh") {
+        if (via !== "lan") return void res.writeHead(404, { "content-type": "application/json" }).end(JSON.stringify({ error: "Not found." }));
+        if (url.pathname === "/api/refresh") return await refreshNow(db, options.refresher, req, res);
+        return sendZoteroApi(db, req, res, url);
       }
       if (url.pathname !== "/mcp") {
         res.writeHead(404).end();
@@ -81,6 +91,15 @@ export function serveHttp(db: DB, options: ServeOptions): Promise<http.Server> {
     console.error(`holdings-mcp ${VERSION} listening on ${typeof a === "object" && a ? `${a.address}:${a.port}` : options.port} (/mcp, /health)`);
     resolve(server);
   }));
+}
+
+async function refreshNow(db: DB, refresher: Refresher | undefined, req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+  const json = { "content-type": "application/json", "cache-control": "no-store" };
+  if (req.method !== "POST") return void res.writeHead(405, { ...json, allow: "POST" }).end(JSON.stringify({ error: "POST to refresh." }));
+  if (!refresher) return void res.writeHead(503, json).end(JSON.stringify({ error: "This server doesn't refresh." }));
+  const r = await refresher.now();
+  const errors = holdingsStatus(db).feeds.filter((f) => f.error).map((f) => f.error);
+  res.writeHead(200, json).end(JSON.stringify({ changed: r.changed, ...(r.works !== undefined ? { works: r.works } : {}), errors }));
 }
 
 export async function serveStdio(db: DB): Promise<void> {

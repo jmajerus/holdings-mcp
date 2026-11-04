@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const HOST = process.env.HOLDINGS_DEPLOY_HOST ?? "authoring@holdings-mcp.localdomain";
 const ASKPASS = path.join(root, "tools", "askpass.mjs");
-const ENV_NAMES = ["HOLDINGS_ZOTERO_LIBRARIES", "HOLDINGS_ZOTERO_API_KEY", "HOLDINGS_BOOKS_URL", "HOLDINGS_COUNTS_URL", "ACCESS_TEAM_DOMAIN"];
+const ENV_NAMES = ["HOLDINGS_ZOTERO_LIBRARIES", "HOLDINGS_ZOTERO_API_KEY", "HOLDINGS_BOOKS_URL", "HOLDINGS_COUNTS_URL", "ACCESS_TEAM_DOMAIN", "HOLDINGS_REFRESH_SECONDS"];
 
 const USAGE = `Usage: npm run deploy -- [--provision | --env] [--skip-tests]
 
@@ -110,14 +110,19 @@ set -a; . /etc/holdings-mcp/env; set +a
 previous=$(readlink /opt/holdings-mcp/current || true)
 echo "previous=$previous"
 fresh_store=""
+# The store as it was before this release's migration changed its schema; a rollback puts it back, since the
+# previous release refuses a store at a newer schema.
+pre_migrate=/var/lib/holdings-mcp/pre-migrate.db
+rm -f "$pre_migrate"
 # Chained with && so it fails at the first failing step even where set -e doesn't apply (in rollback's if).
 install_units() {
   install -m 0644 "$1/deploy/holdings-mcp.service" "$1/deploy/holdings-backup.service" "$1/deploy/holdings-backup.timer" /etc/systemd/system/ \\
     && install -m 0755 "$1/deploy/holdings-mcp" /usr/local/bin/holdings-mcp \\
     && systemctl daemon-reload
 }
-# From the switch on, any failure puts the previous release (and its units) back, and a first store that
-# didn't finish its first refresh is removed, so the next deploy runs it again.
+# From the switch on, any failure puts the previous release (and its units) back, a first store that didn't
+# finish its first refresh is removed, so the next deploy runs it again, and a store a migration changed is
+# put back as it was.
 rollback() {
   status=$?
   [ "$status" -eq 0 ] && return
@@ -129,7 +134,22 @@ rollback() {
   fi
   if [ -n "$previous" ]; then
     ln -sfn "$previous" /opt/holdings-mcp/current
-    if install_units "$previous"; then
+    units=1
+    install_units "$previous" || units=""
+    if [ -f "$pre_migrate" ]; then
+      systemctl stop holdings-mcp.service || true
+      # Chained, so the copy never replaces a migrated store that couldn't be set aside. Its -wal and -shm
+      # go with it, renamed alike, since committed writes can still be only in the -wal.
+      if mv "$HOLDINGS_DB" "$HOLDINGS_DB.rolled-back" &&
+        { [ ! -f "$HOLDINGS_DB-wal" ] || mv "$HOLDINGS_DB-wal" "$HOLDINGS_DB.rolled-back-wal"; } &&
+        { [ ! -f "$HOLDINGS_DB-shm" ] || mv "$HOLDINGS_DB-shm" "$HOLDINGS_DB.rolled-back-shm"; } &&
+        mv "$pre_migrate" "$HOLDINGS_DB" && chown holdings:holdings "$HOLDINGS_DB"; then
+        echo "restored the store from before the migration; the migrated one is $HOLDINGS_DB.rolled-back"
+      else
+        echo "store_restore_failed: the copy from before the migration is $pre_migrate"
+      fi
+    fi
+    if [ -n "$units" ]; then
       systemctl restart holdings-mcp.service || echo "holdings-mcp didn't restart on $previous"
       echo "rolled_back=$previous"
     else
@@ -146,7 +166,7 @@ if [ ! -f "$HOLDINGS_DB" ]; then
   fresh_store=1
   ${asHoldings("refresh --rebuild")}
 else
-  ${asHoldings("migrate")}
+  ${asHoldings("migrate --backup /var/lib/holdings-mcp/pre-migrate.db")}
 fi
 systemctl enable --quiet holdings-mcp.service holdings-backup.timer
 systemctl start holdings-backup.timer
@@ -157,6 +177,7 @@ for i in $(seq 1 20); do
 done
 curl -sf -o /dev/null "http://127.0.0.1:$HOLDINGS_PORT/health"
 trap - EXIT
+rm -f "$pre_migrate"
 ls -1dt /opt/holdings-mcp/releases/* | tail -n +4 | xargs -r rm -rf
 `);
   await writeDeployed({ branch: git(["rev-parse", "--abbrev-ref", "HEAD"]), commit: git(["rev-parse", "HEAD"]), local: true, dirty: git(["status", "--porcelain"]) !== "" });

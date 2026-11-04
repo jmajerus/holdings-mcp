@@ -4,7 +4,9 @@ import Database from "better-sqlite3";
 
 /**
  * The holdings store. Everything in it is a copy (PLAN.md, "Copies follow feeds"), except former_keys:
- * - zotero_items mirrors the Zotero libraries, kept current by library version (src/sync.ts);
+ * - zotero_items mirrors the Zotero libraries, kept current by library version (src/sync.ts), and
+ *   zotero_deletions the keys Zotero deleted from them, so corpus-mcp and quote-mcp can sync from here as they
+ *   would from Zotero (src/zotero-api.ts);
  * - feeds holds each feed's last good snapshot, its ETag, and when it last answered (src/feeds.ts);
  * - works, work_keys, holdings, and works_fts are rebuilt from those after every refresh (src/works.ts);
  * - former_keys records interim keys (calibre:…, quote:…) whose work was later filed in Zotero, so they keep
@@ -13,7 +15,7 @@ import Database from "better-sqlite3";
 
 export type DB = Database.Database;
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -24,6 +26,12 @@ CREATE TABLE IF NOT EXISTS zotero_items (
 );
 CREATE INDEX IF NOT EXISTS zotero_items_type ON zotero_items (library, item_type);
 CREATE INDEX IF NOT EXISTS zotero_items_parent ON zotero_items (library, parent_key);
+CREATE INDEX IF NOT EXISTS zotero_items_version ON zotero_items (library, version);
+-- Keys Zotero deleted for good (emptied from the trash), at the library version the sync learned of them.
+CREATE TABLE IF NOT EXISTS zotero_deletions (
+  library TEXT NOT NULL, key TEXT NOT NULL, version INTEGER NOT NULL, PRIMARY KEY (library, key)
+);
+CREATE INDEX IF NOT EXISTS zotero_deletions_version ON zotero_deletions (library, version);
 
 -- One row per feed: zotero:<library>, books, counts. body is the last snapshot that parsed.
 CREATE TABLE IF NOT EXISTS feeds (

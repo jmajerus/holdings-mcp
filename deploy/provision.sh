@@ -25,7 +25,7 @@ if [ ! -f /etc/holdings-mcp/env ]; then
 HOLDINGS_DB=/var/lib/holdings-mcp/holdings.db
 HOLDINGS_HOST=0.0.0.0
 HOLDINGS_PORT=8000
-HOLDINGS_REFRESH_SECONDS=300
+HOLDINGS_REFRESH_SECONDS=120
 ENV
 fi
 
