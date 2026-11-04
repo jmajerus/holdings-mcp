@@ -252,6 +252,13 @@ The dev-briefs `holdings-and-quotes.md` in corpus-mcp and quote-mcp
   without a resync, and their counts match the mirror's. zotero-mcp still reads Zotero directly. Waiting on
   the user: whether quote-mcp's `add_quote` calls `POST /api/refresh` when a work key isn't in its mirror
   yet.
+- **Phase 5 (started 2026-11-04):** no code here or in terminology-mcp. `human-work` is live in
+  terminology-mcp and quote-mcp follows it. quote-mcp's PR stores the sets from the feed; deploy it first,
+  then create `despair` in terminology-mcp's `/sets` page, and `vocab/sets.json` goes a release later.
+  corpus-mcp's PR follows `cc-subjects` directly (its overlay is empty, so nothing migrates), and
+  `add_provisional_term` calls `propose_term`. `cc-subjects` keeps `proposalSource: required` (the user's
+  decision); one setting changes that if research terms need it. Concept Clusters' push to corpus-mcp
+  retires after the switch has run cleanly.
 - **Deploys** in all three repos roll back on any failure after the release switch, units included
   (holdings-mcp #1, quote-mcp #7, corpus-mcp #12). quote-mcp, and holdings-mcp from phase 4, also put
   back the store from before a migration that changed its schema.
