@@ -257,9 +257,11 @@ The dev-briefs `holdings-and-quotes.md` in corpus-mcp and quote-mcp
   expand it to the same 8 concepts. `vocab/sets.json` is out of effect and leaves after a release. corpus-mcp
   #16 follows `cc-subjects` directly (174 assignable tags) and its overlay is gone; `add_provisional_term`
   calls `propose_term`. `cc-subjects` keeps `proposalSource: required` (the user's decision); `human-work` got
-  the settings its import missed (`slugScope: scheme`, `proposalSource: optional`). Remaining: Concept
-  Clusters switches its push off and, after a trial run, merges `retire-taxonomy-push`; then corpus-mcp
-  corrects what `off` means and, if the user agrees, removes its intake route and push token.
+  the settings its import missed (`slugScope: scheme`, `proposalSource: optional`). Concept Clusters' push
+  is retired (concept-clusters #322). Remaining: corpus-mcp removes its intake route and push token, and
+  quote-mcp removes `vocab/sets.json`; both go live at those services' next deploys.
+- **Cross-service checks:** step 1 is deployed (#3); see [docs/cross-service-checks.md](docs/cross-service-checks.md).
+  Both Zotero readers show as reading through holdings-mcp.
 - **Deploys** in all three repos roll back on any failure after the release switch, units included
   (holdings-mcp #1, quote-mcp #7, corpus-mcp #12). quote-mcp, and holdings-mcp from phase 4, also put
   back the store from before a migration that changed its schema.
