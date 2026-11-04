@@ -8,6 +8,9 @@ its text, find its quotes and notes, cite it.
 It keeps a mirror of the Zotero libraries and polls two feeds: corpus-mcp's books and quote-mcp's quote
 counts. It writes to none of them, and its MCP tools are read-only. [PLAN.md](PLAN.md) is the plan of record.
 
+corpus-mcp and quote-mcp read Zotero through it, so only holdings-mcp syncs with zotero.org (see
+[Zotero through holdings-mcp](#zotero-through-holdings-mcp)). Writes to Zotero go through zotero-mcp.
+
 ## MCP tools
 
 | Name | What it does |
@@ -30,10 +33,34 @@ Requires Node.js 22 or later; `better-sqlite3` compiles natively.
 npm install
 cp .env.example .env    # then set HOLDINGS_ZOTERO_API_KEY, and the feed URLs once they're deployed
 npm run refresh         # sync Zotero, poll the feeds, build the works
-npm run serve           # MCP at http://localhost:8000/mcp, refreshing every 5 minutes
+npm run serve           # MCP at http://localhost:8000/mcp, refreshing every 2 minutes
 ```
 
 `npm run holdings -- status` prints what `holdings_status` answers. Run the tests with `npm test`.
+
+## Zotero through holdings-mcp
+
+On the LAN only (through Access they're a 404), the server answers the part of the Zotero Web API that
+corpus-mcp and quote-mcp sync with, from its mirror, notes included:
+
+| Request | Answers |
+|---|---|
+| `GET /zotero/<library>/items` | Items changed since a library version: `since`, `includeTrashed`, `itemType`, `itemKey`, `limit` (100 at most), `start`, `format=json` |
+| `GET /zotero/<library>/items/top` | The same, for items without a parent |
+| `GET /zotero/<library>/deleted` | Keys deleted for good since a version (`since`) |
+| `POST /api/refresh` | Refreshes now, after any refresh already running: for a service that just wrote to Zotero |
+
+Each sets `Last-Modified-Version` and, for listings, `Total-Results`, as Zotero does. The versions are
+Zotero's own, so a service that synced from Zotero carries on from its version. Any other parameter
+(`q`, `tag`, `sort`, …) is refused rather than ignored. To switch a service, set its base URL:
+
+```bash
+CORPUS_ZOTERO_API=http://holdings-mcp.localdomain:8000/zotero   # corpus-mcp
+QUOTE_ZOTERO_API=http://holdings-mcp.localdomain:8000/zotero    # quote-mcp
+```
+
+It's as fresh as the last refresh: every `HOLDINGS_REFRESH_SECONDS` (120 by default), or sooner with
+`POST /api/refresh`.
 
 ## Deploying
 
@@ -44,6 +71,9 @@ npm run deploy -- --provision   # once: Node 22, the holdings user, directories
 npm run deploy -- --env         # copy the Zotero and feed settings from .env to /etc/holdings-mcp/env
 npm run deploy                  # build, test, install a release, health-check, roll back on failure
 ```
+
+A deploy whose migration changes the store's schema keeps a copy of the store from before it, and a
+rollback puts that copy back, since the previous release refuses a newer schema.
 
 A nightly timer backs the store up to `/var/lib/holdings-mcp/backups` and keeps 14 days. Everything in the
 store can be rebuilt from Zotero and the feeds except `former_keys`, which is why it's backed up.

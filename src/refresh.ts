@@ -49,22 +49,38 @@ export async function refresh(db: DB, options: RefreshOptions): Promise<{ change
   return { changed, works: r.works, retired: r.retired };
 }
 
-/** Refreshes every interval, never two at once; returns a function that stops it. */
-export function startRefresh(db: DB, options: RefreshOptions, seconds: number): () => void {
-  let running = false;
-  const tick = async () => {
-    if (running) return;
-    running = true;
-    try {
-      await refresh(db, options);
-    } catch (error) {
-      console.error(`Refresh failed: ${(error as Error).message}`);
-    } finally {
-      running = false;
-    }
+export type RefreshResult = Awaited<ReturnType<typeof refresh>>;
+
+export interface Refresher {
+  /** A refresh that starts after any running one, since that one may have begun before the change asked about. */
+  now(): Promise<RefreshResult>;
+  stop(): void;
+}
+
+/** Refreshes every interval (none when seconds is 0), and on request; never two at once. */
+export function startRefresh(db: DB, options: RefreshOptions, seconds: number): Refresher {
+  let running: Promise<RefreshResult> | null = null;
+  let queued: Promise<RefreshResult> | null = null;
+  const run = () => {
+    const r = refresh(db, options);
+    running = r.finally(() => (running = null));
+    return running;
   };
-  void tick();
-  const timer = setInterval(tick, seconds * 1000);
-  timer.unref();
-  return () => clearInterval(timer);
+  const tick = () => {
+    if (!running) run().catch((error) => console.error(`Refresh failed: ${(error as Error).message}`));
+  };
+  const timer = seconds > 0 ? setInterval(tick, seconds * 1000) : null;
+  timer?.unref();
+  if (seconds > 0) tick();
+  return {
+    now() {
+      if (!running) return run();
+      queued ??= running.catch(() => undefined).then(() => {
+        queued = null;
+        return running ?? run();
+      });
+      return queued;
+    },
+    stop: () => timer && clearInterval(timer),
+  };
 }

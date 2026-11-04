@@ -70,7 +70,7 @@ repository:
 | **quote-mcp** | Quotes and margin notes, from any medium: text, locator, comment, tags, history | Book text; concept definitions |
 | **terminology-mcp** | Schemes, terms, relations, and concept sets, including `human-work`'s sets | Anything tagged with them |
 | **Zotero** | Bibliographic records and citekeys (Better BibTeX) | |
-| **zotero-mcp** (portal) | Managing the Zotero library: filing, attachments, annotations | Finding works across the services: that's `find_work` |
+| **zotero-mcp** (portal) | Managing the Zotero library: filing, attachments, annotations. The one path that writes to Zotero. It keeps reading Zotero directly: it's upstream's code, and it uses far more of the API than the syncs do | Finding works across the services: that's `find_work` |
 
 ## Decisions
 
@@ -186,9 +186,13 @@ takes a key from `find_work`.
    matters soonest is the skill, which stops new quotes landing in
    corpus-mcp.
 4. **One Zotero mirror.** corpus-mcp and quote-mcp read Zotero items from
-   holdings-mcp instead of mirroring the library themselves. quote-mcp keeps
-   reading the notes it imports quotes from until that's settled (see open
-   questions).
+   holdings-mcp instead of from zotero.org. holdings-mcp answers the part of
+   the Zotero Web API their syncs use (`/zotero/<library>/items`,
+   `/items/top`, `/deleted`, with Zotero's own versions), notes included, so
+   each switches by setting its API base URL and carries on from its
+   version. It refreshes every 2 minutes, and on `POST /api/refresh` for a
+   service that has just filed something through zotero-mcp. Their own
+   mirror tables can go later, once this has run a while.
 5. **Vocabulary** (in corpus-mcp, quote-mcp, terminology-mcp). corpus-mcp
    follows terminology-mcp's changelog and its overlay retires, with
    `add_provisional_term` becoming a call to `propose_term`; `human-work`'s
@@ -236,13 +240,16 @@ The dev-briefs `holdings-and-quotes.md` in corpus-mcp and quote-mcp
     a `POST` like `add_quote`). Editing stays on quote-mcp's pages. More waits on real use.
     Deployed: the links (corpus-mcp `24f8fa6`), the routes (quote-mcp #10) and the reader (corpus-mcp
     #15). corpus-mcp's quote tools (#14) now name the quote-mcp tool to use instead.
-  - §2.5 (quote-mcp #11, open): `update_quote` for tags and comments, `propose_quote_fix` for text, page
+  - §2.5 (quote-mcp #11, merged and deployed): `update_quote` for tags and comments, `propose_quote_fix` for text, page
     or chapter author (a person accepts with `quote-mcp proposals`), and `delete_quote` for agent and
     corpus quotes. Ids are never reused after a delete. Schema 4.
-  Phase 3 is done once #11 is deployed.
+  Phase 3 is done.
+- **Phase 4:** holdings-mcp's side is on `feat/phase-4-zotero-feed`: the `/zotero` routes, deletions
+  recorded at their library version (schema 2), `POST /api/refresh`, and a 2-minute refresh. Then
+  corpus-mcp and quote-mcp each set their Zotero API base URL to it.
 - **Deploys** in all three repos roll back on any failure after the release switch, units included
-  (holdings-mcp #1, quote-mcp #7, corpus-mcp #12). quote-mcp also puts back the store from before a
-  migration that changed its schema.
+  (holdings-mcp #1, quote-mcp #7, corpus-mcp #12). quote-mcp, and holdings-mcp from phase 4, also put
+  back the store from before a migration that changed its schema.
 - **Libraries:** both, `users/827407` and `groups/61098`, the libraries quote-mcp reads
   (`HOLDINGS_ZOTERO_LIBRARIES`).
 
@@ -259,9 +266,8 @@ The dev-briefs `holdings-and-quotes.md` in corpus-mcp and quote-mcp
   filed, or file every quoted book into Zotero's staging collection? Filing
   is a Zotero write, which quote-mcp's phase 4 also waits on. Until then,
   the roughly 200 quoted works outside Zotero have no citekey.
-- **Notes in the mirror.** Should holdings-mcp mirror Zotero notes too, so
-  quote-mcp can drop its own sync entirely, or should quote-mcp keep reading
-  notes itself?
+- **Notes in the mirror.** Decided (2026-11-03): holdings-mcp mirrors and
+  serves notes too, so quote-mcp reads them through it like everything else.
 - **Shared code.** The Zotero client, the sync, the nightly backup, and the
   D1 drain are already copied between corpus-mcp and quote-mcp, and
   holdings-mcp would make a third copy. A shared package, on the model of
