@@ -116,7 +116,7 @@ function page(db: DB): string {
 <td><form method="post" action="/worklist/dismiss">${hidden(item)}<label class="s" for="reason-${i}">Why is this fine?</label><input id="reason-${i}" name="reason" required maxlength="${REASON_MAX}"><button>Dismiss</button></form></td></tr>`;
   const done = (item: WorklistItem) => `<tr><td><strong>${esc(item.label)}</strong><div>${esc(item.detail)}</div><div class="s">${esc(item.dismissed!.reason)} · ${esc(item.dismissed!.at.slice(0, 10))}</div></td>
 <td><form method="post" action="/worklist/restore">${hidden(item)}<button>Bring back</button></form></td></tr>`;
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Holdings worklist</title>
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Holdings worklist</title><link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <style>:root{color-scheme:light dark;--line:#8884;--mut:#777;--fail:#b3261e;--drift:#9a6700}body{font:15px/1.5 system-ui,sans-serif;max-width:60rem;margin:0 auto;padding:24px 16px}
 h1{margin:0 0 4px}table{border-collapse:collapse;width:100%}td{vertical-align:top;padding:10px 12px 10px 0;border-bottom:1px solid var(--line)}.s{color:var(--mut);font-size:.87rem}
 .fail{color:var(--fail);font-weight:600}.drift{color:var(--drift);font-weight:600}.banner{border-left:3px solid var(--fail);padding:6px 12px;margin:8px 0}input:not([type=hidden]){display:block;width:13rem;max-width:100%;margin:2px 0 6px}section{margin-top:24px;overflow-x:auto}</style></head><body>

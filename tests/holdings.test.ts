@@ -310,6 +310,15 @@ describe("server", () => {
     expect(response.headers.get("cache-control")).toBe("no-store");
     const html = await response.text();
     expect(html).toContain("Learning Systems Thinking");
+    expect(html).toContain('rel="icon" type="image/svg+xml" href="/favicon.svg"');
+    const icon = await fetch(`${base}/favicon.svg`, { headers });
+    expect(icon.status).toBe(200);
+    expect(icon.headers.get("content-type")).toContain("image/svg+xml");
+    expect(await icon.text()).toContain("<title>Holdings</title>");
+    const iconHead = await fetch(`${base}/favicon.svg`, { method: "HEAD", headers });
+    expect(iconHead.status).toBe(200);
+    expect(await iconHead.text()).toBe("");
+    expect((await fetch(`${base}/favicon.svg`, { method: "POST", headers })).status).toBe(405);
     expect(html).not.toContain('href="/admin"');
     expect(html).not.toContain("Server health");
     expect(html).not.toContain("192.168.");

@@ -8,6 +8,7 @@ import { AccessError, authorizeRequest, requestAccessConfig, type RequestAccessC
 import { VERSION, createServer } from "./mcp.js";
 import { adminPage, homePage } from "./home.js";
 import { healthStatus } from "./health.js";
+import { FAVICON } from "./favicon.js";
 import { holdingsStatus } from "./queries.js";
 import type { Refresher } from "./refresh.js";
 import { sendWorklist, worklistCount } from "./worklist.js";
@@ -37,6 +38,13 @@ export function serveHttp(db: DB, options: ServeOptions): Promise<http.Server> {
     const url = new URL(req.url ?? "/", "http://localhost");
     try {
       const { via } = await authorizeRequest(req, url.pathname, access, options.accessKeys);
+      if (url.pathname === "/favicon.svg") {
+        if (req.method !== "GET" && req.method !== "HEAD") return void res.writeHead(405, { allow: "GET, HEAD" }).end();
+        return void res.writeHead(200, {
+          "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=86400",
+          "x-content-type-options": "nosniff",
+        }).end(req.method === "HEAD" ? undefined : FAVICON);
+      }
       if (url.pathname === "/health") {
         res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(healthStatus(db)));
         return;
