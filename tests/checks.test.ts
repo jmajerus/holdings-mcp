@@ -422,10 +422,17 @@ describe("home page", () => {
     await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
     expect((await probe(entry(`http://127.0.0.1:${(server.address() as AddressInfo).port}`, "/health"))).state).toBe("problem");
     await new Promise<void>((r) => server.close(() => r()));
-    const unwell = http.createServer((_, res) => res.writeHead(200).end(JSON.stringify({ ok: false })));
-    await new Promise<void>((r) => unwell.listen(0, "127.0.0.1", r));
-    expect((await probe(entry(`http://127.0.0.1:${(unwell.address() as AddressInfo).port}`, "/health"))).state).toBe("problem");
-    await new Promise<void>((r) => unwell.close(() => r()));
+    for (const [answer, expected] of [
+      ["null", { state: "problem" }],
+      ['{"ok":false}', { state: "problem" }],
+      ['{"ok":"yes"}', { state: "problem" }],
+      ['{"ok":true,"deployed":{"commit":7,"at":123}}', { state: "up" }],
+    ] as const) {
+      const unwell = http.createServer((_, res) => res.writeHead(200).end(answer));
+      await new Promise<void>((r) => unwell.listen(0, "127.0.0.1", r));
+      expect(await probe(entry(`http://127.0.0.1:${(unwell.address() as AddressInfo).port}`, "/health"))).toEqual(expected);
+      await new Promise<void>((r) => unwell.close(() => r()));
+    }
   });
 
   it("reads overrides, and keeps a bad one out", () => {

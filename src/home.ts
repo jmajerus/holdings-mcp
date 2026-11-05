@@ -63,17 +63,28 @@ function withAddress(db: DB, entry: Entry, links: Map<string, string>): Entry {
 
 /** Asks one server, briefly. Any answer short of a server error means it's there; a /health can say more. */
 export async function probe(entry: Entry, timeoutMs = 2000): Promise<Status> {
+  let res: Response;
   try {
-    const res = await fetch(entry.base + entry.probe, { redirect: "manual", signal: AbortSignal.timeout(timeoutMs) });
-    if (res.status >= 500) return { state: "problem" };
-    if (entry.probe !== "/health") {
+    res = await fetch(entry.base + entry.probe, { redirect: "manual", signal: AbortSignal.timeout(timeoutMs) });
+  } catch {
+    return { state: "down" };
+  }
+  try {
+    if (res.status >= 500 || entry.probe !== "/health") {
       await res.body?.cancel();
-      return { state: "answering" };
+      return { state: res.status >= 500 ? "problem" : "answering" };
     }
-    const body = await res.json() as { ok?: boolean; deployed?: { commit?: string; at?: string } | null };
-    return { state: res.ok && body.ok ? "up" : "problem", commit: body.deployed?.commit?.slice(0, 7), deployedAt: body.deployed?.at };
-  } catch (error) {
-    return { state: error instanceof SyntaxError ? "problem" : "down" };
+    const body = await res.json() as { ok?: unknown; deployed?: { commit?: unknown; at?: unknown } | null } | null;
+    const commit = body?.deployed?.commit;
+    const at = body?.deployed?.at;
+    return {
+      state: res.ok && body?.ok === true ? "up" : "problem",
+      ...(typeof commit === "string" ? { commit: commit.slice(0, 7) } : {}),
+      ...(typeof at === "string" ? { deployedAt: at } : {}),
+    };
+  } catch {
+    // It answered, then sent something that isn't JSON, or stopped partway.
+    return { state: "problem" };
   }
 }
 
