@@ -303,6 +303,34 @@ describe("worklist", () => {
     expect(refs()).toEqual(["book:main:2", `calibre:${UUID}`, "citekey:same2001"]);
   });
 
+  it("keeps a citekey on the list when two of its works are in one library, even if another library has it too", () => {
+    item("CCCC0001", { citationKey: "same2001" });
+    item("CCCC0002", { citationKey: "same2001" });
+    item("CCCC0003", { citationKey: "same2001" }, { library: "groups/2" });
+    run([], []);
+    expect(worklist(db).open.map((i) => i.ref)).toEqual(["citekey:same2001"]);
+  });
+
+  it("refuses to dismiss a finding that isn't on the list", async () => {
+    item("BBBB0001", { citationKey: "both2001" });
+    item("BBBB0002", { citationKey: "both2001" }, { library: "groups/2" });
+    run([], [], { HOLDINGS_ZOTERO_READERS: "quote-mcp=192.168.1.210:1800" });
+    expect(dismiss(db, "one-work-per-exact-key", "citekey:both2001", "Fine")).toBe(false);
+    expect((await post("/worklist/dismiss", { check: "zotero-readers-in-step", ref: "quote-mcp", reason: "Fine" })).status).toBe(404);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM check_dismissals").get()).toEqual({ n: 0 });
+  });
+
+  it("links a quote-mcp entry with no work id back to quote-mcp", async () => {
+    const start = Date.now();
+    feed("counts", { version: 1, works: [] });
+    db.prepare("UPDATE feeds SET url = 'http://quote-mcp.example:8000/api/holdings/counts' WHERE name = 'counts'").run();
+    run([], [{ zotero: { library: LIB, key: "GONE0001" }, quotes: 1, notes: 0, verified: 0 }], {}, start);
+    db.prepare("UPDATE feeds SET url = 'http://quote-mcp.example:8000/api/holdings/counts' WHERE name = 'counts'").run();
+    runChecks(db, {}, start + 2 * HOUR);
+    expect(worklist(db).open[0].ref).toBe(`quotes:${LIB}/GONE0001`);
+    expect(await (await fetch(`${base}/worklist`)).text()).toContain("http://quote-mcp.example:8000/admin");
+  });
+
   it("shows banners for a reader that stopped and a source that's down", () => {
     const start = Date.now();
     run([], [], { HOLDINGS_ZOTERO_READERS: "quote-mcp=192.168.1.210:1800" }, start);

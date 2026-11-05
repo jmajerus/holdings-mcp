@@ -33,9 +33,10 @@ export interface WorklistItem {
 
 interface Row { check_name: string; ref: string; detail: string; severity: string; first_seen: string; reason: string | null; dismissed_at: string | null }
 
-/** A citekey held in both libraries is the same work twice, which is expected; inside one library it's a real clash. */
+/** A citekey on one work in each library is the same work twice, which is expected; two works in one library clash. */
 function acrossLibraries(detail: string): boolean {
-  return new Set(detail.match(/(?:users|groups)\/\d+/g) ?? []).size > 1;
+  const libraries = detail.match(/(?:users|groups)\/\d+/g) ?? [];
+  return libraries.length > 1 && new Set(libraries).size === libraries.length;
 }
 
 /** Whether a finding should wait for a person: anything failing, plus the kinds that only a person ever resolves. */
@@ -67,10 +68,10 @@ export function worklistCount(db: DB): number {
   return worklist(db).open.length;
 }
 
-/** Dismisses a finding as it reads now, so different wording later brings it back. */
+/** Dismisses a finding on the list as it reads now, so different wording later brings it back. Anything else is refused. */
 export function dismiss(db: DB, check: string, ref: string, reason: string): boolean {
-  const finding = db.prepare("SELECT detail FROM check_findings WHERE check_name = ? AND ref = ?").get(check, ref) as { detail: string } | undefined;
-  if (!finding) return false;
+  const finding = db.prepare("SELECT detail, severity FROM check_findings WHERE check_name = ? AND ref = ?").get(check, ref) as { detail: string; severity: string } | undefined;
+  if (!finding || !needsPerson(check, ref, finding.detail, finding.severity)) return false;
   db.prepare(`INSERT INTO check_dismissals (check_name, ref, detail, reason, at) VALUES (?, ?, ?, ?, ?)
     ON CONFLICT (check_name, ref) DO UPDATE SET detail = excluded.detail, reason = excluded.reason, at = excluded.at`).run(check, ref, finding.detail, reason, now());
   return true;
@@ -101,7 +102,7 @@ function links(db: DB, item: WorklistItem): string {
   const corpus = sourceOrigin(db, "books");
   const quotes = sourceOrigin(db, "counts");
   if (corpus && (item.check === "filed-but-unmatched" || item.check === "likely-missed-matches" || item.ref.startsWith("book:"))) out.push(`<a href="${esc(corpus)}/admin/zotero">corpus-mcp</a>`);
-  if (quotes && (item.check === "one-quote-work-per-item" || item.ref.startsWith("quote:"))) out.push(`<a href="${esc(quotes)}/admin">quote-mcp</a>`);
+  if (quotes && (item.check === "one-quote-work-per-item" || item.ref.startsWith("quote:") || item.ref.startsWith("quotes:"))) out.push(`<a href="${esc(quotes)}/admin">quote-mcp</a>`);
   return [...new Set(out)].join(" · ");
 }
 
@@ -159,7 +160,7 @@ export async function sendWorklist(db: DB, req: http.IncomingMessage, res: http.
     const reason = body?.get("reason")?.trim();
     if (!reason) return text(400, "Say why this finding is fine.");
     if (reason.length > REASON_MAX) return text(400, `Keep the reason to ${REASON_MAX} characters.`);
-    if (!dismiss(db, check, ref, reason)) return text(404, "That finding has gone.");
+    if (!dismiss(db, check, ref, reason)) return text(404, "That finding has gone, or isn't one that can be dismissed.");
   }
   res.writeHead(303, { location: "/worklist", "cache-control": "no-store" }).end();
 }
