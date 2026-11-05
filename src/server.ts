@@ -10,6 +10,7 @@ import { AccessError, authorizeRequest, requestAccessConfig, type RequestAccessC
 import { VERSION, createServer } from "./mcp.js";
 import { holdingsStatus } from "./queries.js";
 import type { Refresher } from "./refresh.js";
+import { sendWorklist, worklistCount } from "./worklist.js";
 import { sendZoteroApi } from "./zotero-api.js";
 
 /**
@@ -17,7 +18,8 @@ import { sendZoteroApi } from "./zotero-api.js";
  * quote-mcp's pattern. Requests through Cloudflare need a verified Access token; direct LAN requests don't.
  * On the LAN only (a 404 through Access): the Zotero mirror at /zotero (src/zotero-api.ts), and
  * POST /api/refresh, which refreshes now, so a service that just wrote to Zotero can see it here; and
- * GET /api/checks, the cross-service checks in full (src/checks.ts).
+ * GET /api/checks, the cross-service checks in full (src/checks.ts); and /worklist, what they found that needs a
+ * person (src/worklist.ts).
  */
 
 export interface ServeOptions {
@@ -47,14 +49,16 @@ export function serveHttp(db: DB, options: ServeOptions): Promise<http.Server> {
         const status = holdingsStatus(db);
         const errors = status.feeds.filter((f) => f.error).map((f) => f.error);
         res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({
-          ok: true, version: VERSION, works: status.works.total, last_refresh: status.last_refresh, errors, checks: checkSummary(db), deployed: readDeployed(),
+          ok: true, version: VERSION, works: status.works.total, last_refresh: status.last_refresh, errors, checks: checkSummary(db), worklist: worklistCount(db), deployed: readDeployed(),
         }));
         return;
       }
-      if (url.pathname.startsWith("/zotero/") || url.pathname === "/api/refresh" || url.pathname === "/api/checks") {
+      if (url.pathname.startsWith("/zotero/") || url.pathname === "/api/refresh" || url.pathname === "/api/checks" || url.pathname === "/worklist" || url.pathname.startsWith("/worklist/")) {
         if (via !== "lan") return void res.writeHead(404, { "content-type": "application/json" }).end(JSON.stringify({ error: "Not found." }));
         if (url.pathname === "/api/refresh") return await refreshNow(db, options.refresher, req, res);
         if (url.pathname === "/api/checks") return sendChecks(db, req, res, url);
+        if (url.pathname === "/worklist" || url.pathname === "/worklist/dismiss" || url.pathname === "/worklist/restore") return await sendWorklist(db, req, res, url);
+        if (url.pathname.startsWith("/worklist/")) return void res.writeHead(404).end();
         return sendZoteroApi(db, req, res, url);
       }
       if (url.pathname !== "/mcp") {

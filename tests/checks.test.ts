@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { checkResults, checkSummary, runChecks, zoteroReaders } from "../src/checks.js";
 import { type DB, now, openDb } from "../src/db.js";
 import { serveHttp } from "../src/server.js";
+import { dismiss, worklist } from "../src/worklist.js";
 import { rebuildWorks } from "../src/works.js";
 
 /** Each check gets data that breaks what it guards, and correct data it must pass (docs/cross-service-checks.md). */
@@ -273,5 +274,94 @@ describe("over HTTP", () => {
     expect(reads()).toEqual([{ address: "127.0.0.1", library: LIB, last_since: 3 }]);
     await fetch(`${base}/zotero/${LIB}/deleted?since=6`);
     expect(reads()).toEqual([{ address: "127.0.0.1", library: LIB, last_since: 6 }]);
+  });
+});
+
+describe("worklist", () => {
+  let server: http.Server;
+  let base: string;
+  afterEach(() => new Promise<void>((r) => server.close(() => r())));
+  beforeEach(async () => {
+    server = await serveHttp(db, { host: "127.0.0.1", port: 0, access: { lanHosts: ["127.0.0.1"] } });
+    base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+  const post = (path: string, fields: Record<string, string>, headers: Record<string, string> = {}) =>
+    fetch(`${base}${path}`, { method: "POST", redirect: "manual", headers: { "content-type": "application/x-www-form-urlencoded", ...headers }, body: new URLSearchParams(fields) });
+  const missed = () => [book("main:1", { calibre_uuid: UUID, isbns: ["9781098151330"] })];
+
+  it("lists what needs a person and leaves out the rest", () => {
+    item("AAAA0001", { ISBN: "9781098151330", citationKey: "both2001" });
+    item("BBBB0001", { citationKey: "both2001" }, { library: "groups/2" });
+    item("CCCC0001", { citationKey: "same2001" });
+    item("CCCC0002", { citationKey: "same2001" });
+    const start = Date.now();
+    run([...missed(), book("main:2", { zotero: { library: LIB, key: "GONE0001" } })], [], {}, start);
+    const refs = () => worklist(db).open.map((i) => i.ref).sort();
+    // A gone item is within its allowance, a citekey in both libraries is expected.
+    expect(refs()).toEqual([`calibre:${UUID}`, "citekey:same2001"]);
+    runChecks(db, {}, start + 2 * HOUR);
+    expect(refs()).toEqual(["book:main:2", `calibre:${UUID}`, "citekey:same2001"]);
+  });
+
+  it("shows banners for a reader that stopped and a source that's down", () => {
+    const start = Date.now();
+    run([], [], { HOLDINGS_ZOTERO_READERS: "quote-mcp=192.168.1.210:1800" }, start);
+    expect(worklist(db).banners).toEqual([]);
+    runChecks(db, { HOLDINGS_ZOTERO_READERS: "quote-mcp=192.168.1.210:1800" }, start + 2 * HOUR);
+    expect(worklist(db).banners[0]).toMatch(/quote-mcp .* has not read/);
+    expect(worklist(db).open).toEqual([]);
+    feed("counts", null, now(), "HTTP 500");
+    runChecks(db, {}, start);
+    expect(worklist(db).banners.join(" ")).toMatch(/not checked, because counts failed/);
+  });
+
+  it("dismisses with a reason, and brings the finding back on request", async () => {
+    item("AAAA0001", { ISBN: "9781098151330" });
+    run(missed(), []);
+    const page = await (await fetch(`${base}/worklist`)).text();
+    expect(page).toContain("zotero://select/library/items/AAAA0001");
+    expect((await post("/worklist/dismiss", { check: "likely-missed-matches", ref: `calibre:${UUID}`, reason: "" })).status).toBe(400);
+    const done = await post("/worklist/dismiss", { check: "likely-missed-matches", ref: `calibre:${UUID}`, reason: "Different edition" });
+    expect(done.status).toBe(303);
+    expect(worklist(db)).toMatchObject({ open: [], dismissed: [{ dismissed: { reason: "Different edition" } }] });
+    expect((await (await fetch(`${base}/health`)).json() as { worklist: number }).worklist).toBe(0);
+    runChecks(db, {});
+    expect(worklist(db).open).toEqual([]);
+    await post("/worklist/restore", { check: "likely-missed-matches", ref: `calibre:${UUID}` });
+    expect(worklist(db).open).toHaveLength(1);
+  });
+
+  it("brings a dismissed finding back when it changes or returns", () => {
+    item("AAAA0001", { ISBN: "9781098151330" });
+    run(missed(), []);
+    dismiss(db, "likely-missed-matches", `calibre:${UUID}`, "Fine");
+    db.prepare("UPDATE check_findings SET detail = 'changed'").run();
+    expect(worklist(db).open).toHaveLength(1);
+    run(missed(), []);
+    expect(worklist(db).open).toHaveLength(0);
+    run([], []);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM check_dismissals").get()).toEqual({ n: 0 });
+    run(missed(), []);
+    expect(worklist(db).open).toHaveLength(1);
+  });
+
+  it("keeps a dismissal while its check can't run", () => {
+    item("AAAA0001", { ISBN: "9781098151330" });
+    run(missed(), []);
+    dismiss(db, "likely-missed-matches", `calibre:${UUID}`, "Fine");
+    feed("books", { version: 1, books: [] }, now(), "HTTP 500");
+    runChecks(db, {});
+    expect(db.prepare("SELECT COUNT(*) AS n FROM check_dismissals").get()).toEqual({ n: 1 });
+  });
+
+  it("refuses a post from another site or without a form, and escapes what it shows", async () => {
+    item("AAAA0001", { ISBN: "9781098151330", title: "x" });
+    run([book("main:1", { calibre_uuid: UUID, isbns: ["9781098151330"], title: "<script>alert(1)</script>" })], []);
+    expect(await (await fetch(`${base}/worklist`)).text()).not.toContain("<script>alert");
+    expect((await post("/worklist/dismiss", { check: "likely-missed-matches", ref: `calibre:${UUID}`, reason: "x" }, { origin: "http://evil.example" })).status).toBe(403);
+    const json = await fetch(`${base}/worklist/dismiss`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+    expect(json.status).toBe(400);
+    expect((await fetch(`${base}/worklist`, { method: "DELETE" })).status).toBe(405);
+    expect((await fetch(`${base}/worklist/nope`)).status).toBe(404);
   });
 });

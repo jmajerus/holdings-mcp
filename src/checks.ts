@@ -170,6 +170,8 @@ export function runChecks(db: DB, env: NodeJS.ProcessEnv = process.env, at = Dat
   const insert = db.prepare("INSERT INTO check_findings (check_name, ref, detail, severity, first_seen, last_seen) VALUES (?, ?, ?, ?, ?, ?)");
   const save = db.prepare(`INSERT INTO checks (name, result, fix, feeds, reason, at) VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT (name) DO UPDATE SET result = excluded.result, fix = excluded.fix, feeds = excluded.feeds, reason = excluded.reason, at = excluded.at`);
+  const dismissals = db.prepare("SELECT ref FROM check_dismissals WHERE check_name = ?").pluck();
+  const undismiss = db.prepare("DELETE FROM check_dismissals WHERE check_name = ? AND ref = ?");
   for (const check of CHECKS) {
     let findings: Finding[];
     const feeds = check.feeds(db);
@@ -196,6 +198,8 @@ export function runChecks(db: DB, env: NodeJS.ProcessEnv = process.env, at = Dat
         if (severity === "fail") result = "fail";
         else if (result === "ok") result = "drift";
       }
+      // A finding that went away takes its dismissal with it; if it returns, it's a new question.
+      for (const d of dismissals.all(check.name) as string[]) if (!refs.has(d)) undismiss.run(check.name, d);
       save.run(check.name, result, check.fix, JSON.stringify(feeds), null, stamp);
     })();
   }
