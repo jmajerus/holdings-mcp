@@ -1,6 +1,4 @@
-import fs from "node:fs";
 import http from "node:http";
-import path from "node:path";
 import type { JWTVerifyGetKey } from "jose";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -8,7 +6,8 @@ import { checkResults, checkSummary, zoteroReads } from "./checks.js";
 import type { DB } from "./db.js";
 import { AccessError, authorizeRequest, requestAccessConfig, type RequestAccessConfig } from "./http-access.js";
 import { VERSION, createServer } from "./mcp.js";
-import { homePage } from "./home.js";
+import { adminPage, homePage } from "./home.js";
+import { healthStatus } from "./health.js";
 import { holdingsStatus } from "./queries.js";
 import type { Refresher } from "./refresh.js";
 import { sendWorklist, worklistCount } from "./worklist.js";
@@ -16,10 +15,11 @@ import { sendZoteroApi } from "./zotero-api.js";
 
 /**
  * Streamable HTTP at /mcp (stateless: a fresh server per request, JSON responses) and /health, on
- * quote-mcp's pattern. Requests through Cloudflare need a verified Access token; direct LAN requests don't.
+ * quote-mcp's pattern. The root library page allows anonymous tunnel browsing; other requests through
+ * Cloudflare need a verified Access token. Direct LAN requests don't.
  * On the LAN only (a 404 through Access): the Zotero mirror at /zotero (src/zotero-api.ts), and
  * POST /api/refresh, which refreshes now, so a service that just wrote to Zotero can see it here; and
- * GET /api/checks, the cross-service checks in full (src/checks.ts); / linking to everything (src/home.ts); and /worklist, what they found that needs a
+ * GET /api/checks, the cross-service checks in full (src/checks.ts); /admin for maintenance (src/home.ts); and /worklist, what they found that needs a
  * person (src/worklist.ts).
  */
 
@@ -31,15 +31,6 @@ export interface ServeOptions {
   refresher?: Refresher;
 }
 
-/** What tools/deploy.mjs last installed (branch, commit, when), written beside the store, so read per request. */
-function readDeployed(): unknown {
-  try {
-    return JSON.parse(fs.readFileSync(path.join(path.dirname(process.env.HOLDINGS_DB ?? "data/holdings.db"), "deployed.json"), "utf8"));
-  } catch {
-    return null;
-  }
-}
-
 export function serveHttp(db: DB, options: ServeOptions): Promise<http.Server> {
   const access = options.access ?? requestAccessConfig(process.env, ["holdings-mcp", "holdings-mcp.localdomain"]);
   const server = http.createServer(async (req, res) => {
@@ -47,16 +38,12 @@ export function serveHttp(db: DB, options: ServeOptions): Promise<http.Server> {
     try {
       const { via } = await authorizeRequest(req, url.pathname, access, options.accessKeys);
       if (url.pathname === "/health") {
-        const status = holdingsStatus(db);
-        const errors = status.feeds.filter((f) => f.error).map((f) => f.error);
-        res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({
-          ok: true, version: VERSION, works: status.works.total, last_refresh: status.last_refresh, errors, checks: checkSummary(db), worklist: worklistCount(db), deployed: readDeployed(),
-        }));
+        res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(healthStatus(db)));
         return;
       }
-      if (url.pathname === "/" && via === "lan") {
+      if (url.pathname === "/" || (url.pathname === "/admin" && via === "lan")) {
         if (req.method !== "GET") return void res.writeHead(405, { allow: "GET" }).end();
-        return void res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" }).end(await homePage(db));
+        return void res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" }).end(url.pathname === "/admin" ? await adminPage(db) : await homePage(db, process.env, url.searchParams, via === "lan"));
       }
       if (url.pathname.startsWith("/zotero/") || url.pathname === "/api/refresh" || url.pathname === "/api/checks" || url.pathname === "/worklist" || url.pathname.startsWith("/worklist/")) {
         if (via !== "lan") return void res.writeHead(404, { "content-type": "application/json" }).end(JSON.stringify({ error: "Not found." }));

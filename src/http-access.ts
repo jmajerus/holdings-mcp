@@ -37,6 +37,9 @@ export async function authorizeRequest(req: IncomingMessage, pathname: string, c
   const proxied = ['cf-ray', 'cf-connecting-ip', 'cdn-loop', 'cf-visitor', 'cf-access-jwt-assertion'].some(h => h in req.headers);
   const localHost = host === 'localhost' || privatePeer(host) || config.lanHosts.some(h => h.toLowerCase() === host);
   if (!proxied && localHost && privatePeer(req.socket.remoteAddress)) return { via: 'lan' as const };
+  // Only library browsing is public through the tunnel. A supplied assertion must still verify;
+  // no other path gains anonymous access merely because it has Cloudflare headers.
+  if (token === undefined && proxied && pathname === '/') return { via: 'public' as const };
   if (typeof token !== 'string' || !token) throw new AccessError(401, 'Cloudflare Access authentication is required.');
   // The audience (which Access application issued the token) is not checked: every application in the team
   // admits only the owner, and a pinned audience tag broke sign-in whenever an application was recreated.

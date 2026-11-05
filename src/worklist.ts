@@ -120,7 +120,7 @@ function page(db: DB): string {
 <style>:root{color-scheme:light dark;--line:#8884;--mut:#777;--fail:#b3261e;--drift:#9a6700}body{font:15px/1.5 system-ui,sans-serif;max-width:60rem;margin:0 auto;padding:24px 16px}
 h1{margin:0 0 4px}table{border-collapse:collapse;width:100%}td{vertical-align:top;padding:10px 12px 10px 0;border-bottom:1px solid var(--line)}.s{color:var(--mut);font-size:.87rem}
 .fail{color:var(--fail);font-weight:600}.drift{color:var(--drift);font-weight:600}.banner{border-left:3px solid var(--fail);padding:6px 12px;margin:8px 0}input:not([type=hidden]){display:block;width:13rem;max-width:100%;margin:2px 0 6px}section{margin-top:24px;overflow-x:auto}</style></head><body>
-<h1>Holdings worklist</h1><p class="s">${open.length} waiting · checks: ${summary.ok} ok, ${summary.drift} drift, ${summary.fail} fail, ${summary.skipped} skipped. Fix an item at its source and it leaves at the next refresh.</p>
+<nav><a href="/">Library</a> · <a href="/admin">← Admin</a></nav><h1>Holdings worklist</h1><p class="s">${open.length} waiting · checks: ${summary.ok} ok, ${summary.drift} drift, ${summary.fail} fail, ${summary.skipped} skipped. Fix an item at its source and it leaves at the next refresh.</p>
 ${banners.map((b) => `<div class="banner">${esc(b)}</div>`).join("")}
 <section>${open.length ? `<table>${open.map(row).join("")}</table>` : "<p>Nothing needs you right now.</p>"}</section>
 ${dismissed.length ? `<section><details><summary>${dismissed.length} dismissed</summary><table>${dismissed.map(done).join("")}</table></details></section>` : ""}

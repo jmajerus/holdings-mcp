@@ -1,9 +1,12 @@
 import http from "node:http";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import type { AddressInfo } from "node:net";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkResults, checkSummary, runChecks, zoteroReaders } from "../src/checks.js";
 import { type DB, now, openDb } from "../src/db.js";
-import { homePage, probe, readLinks } from "../src/home.js";
+import { adminPage, homePage, present, probe, readLinks } from "../src/home.js";
 import { serveHttp } from "../src/server.js";
 import { dismiss, worklist } from "../src/worklist.js";
 import { rebuildWorks } from "../src/works.js";
@@ -446,7 +449,7 @@ describe("home page", () => {
     run([], []);
     db.prepare("UPDATE feeds SET url = 'http://books.example:8000/api/holdings/books' WHERE name = 'books'").run();
     const everything = "corpus-mcp=@,quote-mcp=@,terminology-mcp=@,zotero-mcp=@,concept-clusters=@".replaceAll("@", fakeBase);
-    const page = await homePage(db, { HOLDINGS_LINKS: everything });
+    const page = await adminPage(db, { HOLDINGS_LINKS: everything });
     const core = page.indexOf("<h2>Core services"), clients = page.indexOf("<h2>Clients");
     expect(core).toBeGreaterThan(-1);
     expect(clients).toBeGreaterThan(core);
@@ -454,19 +457,145 @@ describe("home page", () => {
     expect(page.indexOf("<strong>concept-clusters")).toBeGreaterThan(clients);
     expect(page).toContain(`href="${fakeBase}/admin/zotero"`);
     expect(page).toContain('href="/worklist"');
-    const fromFeed = await homePage(db, { HOLDINGS_LINKS: "quote-mcp=@,terminology-mcp=@,zotero-mcp=@,concept-clusters=@,typo=@".replaceAll("@", fakeBase) });
+    const fromFeed = await adminPage(db, { HOLDINGS_LINKS: "quote-mcp=@,terminology-mcp=@,zotero-mcp=@,concept-clusters=@,typo=@".replaceAll("@", fakeBase) });
     expect(fromFeed).toContain('href="http://books.example:8000/admin"');
     expect(fromFeed).toContain("entries it can't use: typo");
   }, 15_000);
 
-  it("is on the LAN only", async () => {
+  const dashboardEnv = () => ({ HOLDINGS_LINKS: "corpus-mcp=@,quote-mcp=@,terminology-mcp=@,zotero-mcp=@,concept-clusters=@".replaceAll("@", fakeBase) });
+
+  it("shows readable checks, saved feed errors and empty states without needing JSON", async () => {
+    let page = await homePage(db, dashboardEnv());
+    expect(page).toContain("No works yet.");
+    page = await adminPage(db, dashboardEnv());
+    expect(page).toContain("No checks have run yet.");
+    item("AAAA0001", { title: "A book" });
+    run([], []);
+    feed("books", null, null, "Connection <failed>");
+    page = await adminPage(db, dashboardEnv());
+    expect(page).toContain("Referenced Zotero items exist");
+    expect(page).toContain("Next step:");
+    expect(page).toContain("Connection &lt;failed&gt;");
+    expect(page).not.toContain("Technical diagnostics");
+    expect(page).not.toMatch(/href="[^" ]*(?:\/health|\/api\/|\/mcp|\/zotero\/)[^" ]*"/);
+    expect(page).not.toContain("(JSON)");
+    expect(page).toContain("Not yet");
+  });
+
+  it("presents every health and check field, including deployment metadata and Zotero readers", async () => {
+    item("AAAA0001", { title: "One", citationKey: "shared" });
+    item("AAAA0002", { title: "Two", citationKey: "shared" });
+    run([], []);
+    db.prepare("INSERT INTO zotero_readers VALUES (?, ?, ?, ?)").run("192.0.2.42", LIB, "2026-11-05T12:34:56.789Z", 12345);
+    const dir = mkdtempSync(path.join(tmpdir(), "holdings-home-"));
+    try {
+      writeFileSync(path.join(dir, "deployed.json"), JSON.stringify({
+        branch: "feature/readable", commit: "abcdef1234567890", at: "2026-11-05T10:20:30.456Z",
+        local: true, dirty: false, release: "custom <release>",
+      }));
+      const page = await adminPage(db, { ...dashboardEnv(), HOLDINGS_DB: path.join(dir, "holdings.db") });
+      for (const text of ["Server responding", "Application version", "Feed errors", "Failing checks",
+        "Full commit", "abcdef1234567890", "feature/readable", "Uncommitted changes", "custom &lt;release&gt;",
+        "2026-11-05 10:20:30.456 UTC", "Zotero readers", "192.0.2.42", LIB,
+        "2026-11-05 12:34:56.789 UTC", "12,345", "Source snapshots", "First seen", "Last seen",
+        "Severity", "Reference", "Last successful read", "All feed details"]) expect(page).toContain(text);
+      for (const check of checkResults(db)) {
+        expect(page).toContain(check.name);
+        expect(page).toContain(present(check.feeds));
+        if (check.examples.length) expect(page).toContain(present(check.examples));
+      }
+      expect(page).not.toMatch(/href="[^" ]*(?:\/health|\/api\/)[^" ]*"/);
+      expect(page).not.toContain('<pre>');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("renders nested data and future fields as labelled HTML with escaped values", () => {
+    const html = present({ future_field: { enabled: false, detail: '<img src=x onerror="alert(1)">' }, list: [{ a: 1 }, { b: "two" }] });
+    expect(html).toContain("Future field");
+    expect(html).toContain("No");
+    expect(html).toContain("&lt;img");
+    expect(html).not.toContain("<img");
+    expect(html).toContain('<th scope="col">A</th>');
+    expect(html).toContain('<th scope="col">B</th>');
+    expect(html).toContain("two");
+    expect(present([])).toContain("None");
+    expect(present(null)).toContain("Not available");
+  });
+
+  it("searches and filters works, escapes content, and keeps filters through pagination", async () => {
+    item("AAAA0001", { title: 'Systems <script>alert("x")</script>', citationKey: "systems2026" });
+    item("AAAA0002", { title: "Another book" });
+    run([book("main:1", { zotero: { library: LIB, key: "AAAA0001" } })], []);
+    let page = await homePage(db, dashboardEnv(), new URLSearchParams({ q: "systems", has: "text" }));
+    expect(page).toContain("1 matching works");
+    expect(page).toContain("Systems &lt;script&gt;");
+    expect(page).not.toContain('<script>');
+    expect(page).not.toContain("Another book");
+    expect(page).toContain("Searchable text");
+    page = await homePage(db, dashboardEnv(), new URLSearchParams({ key: "@systems2026" }));
+    expect(page).toContain("1 matching works");
+    page = await homePage(db, dashboardEnv(), new URLSearchParams({ q: "absent" }));
+    expect(page).toContain("No works match these filters");
+    for (let i = 0; i < 22; i++) item(`TEST${String(i).padStart(4, "0")}`, { title: `Systems volume ${String(i).padStart(2, "0")}` });
+    run([], []);
+    page = await homePage(db, dashboardEnv(), new URLSearchParams({ q: "systems" }));
+    expect(page).toContain('q=systems&amp;key=&amp;has=&amp;offset=20#library');
+    page = await homePage(db, dashboardEnv(), new URLSearchParams({ q: "systems", offset: "20" }));
+    expect(page).toContain("showing 21–23");
+    expect(page).toContain("← Previous");
+    expect(page).not.toContain("Next →");
+  });
+
+  it("keeps the root focused on library search without probing services", async () => {
+    run([], []);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("offline"));
+    try {
+      const page = await homePage(db, dashboardEnv());
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(page).toContain("Find a work");
+      expect(page).toContain("Works in your library");
+      expect(page).toContain('href="/admin"');
+      expect(page).toContain('href="/" aria-current="page"');
+      for (const title of ["Server health", "Cross-service checks", "Zotero readers", "Data freshness", "Core services", "Clients", "Open worklist"]) expect(page).not.toContain(title);
+    } finally {
+      fetchSpy.mockRestore();
+    }
+    const admin = await adminPage(db, dashboardEnv());
+    expect(admin).not.toContain('id="library"');
+    expect(admin).not.toContain("Search library");
+    expect(admin).toContain('href="/admin" aria-current="page"');
+    expect(admin).toContain('href="/"');
+  });
+
+  it("serves library browsing through the tunnel while keeping admin on the LAN", async () => {
     run([], []);
     const saved = process.env.HOLDINGS_LINKS;
     process.env.HOLDINGS_LINKS = "corpus-mcp=@,quote-mcp=@,terminology-mcp=@,zotero-mcp=@,concept-clusters=@".replaceAll("@", fakeBase);
     const server = await serveHttp(db, { host: "127.0.0.1", port: 0, access: { lanHosts: ["127.0.0.1"] } });
     const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-    expect((await fetch(`${base}/`)).status).toBe(200);
-    expect((await fetch(`${base}/`, { method: "POST" })).status).toBe(405);
+    item("AAAA0001", { title: "Search target" });
+    item("AAAA0002", { title: "Other title" });
+    run([], []);
+    const response = await fetch(`${base}/?q=target`);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/html");
+    const html = await response.text();
+    expect(html).toContain("Search target");
+    expect(html).not.toContain("Other title");
+    const admin = await fetch(`${base}/admin`);
+    expect(admin.status).toBe(200);
+    expect(admin.headers.get("content-type")).toContain("text/html");
+    const adminHtml = await admin.text();
+    expect(adminHtml).toContain("Server health");
+    expect(adminHtml).not.toContain('id="library"');
+    const worklistHtml = await (await fetch(`${base}/worklist`)).text();
+    expect(worklistHtml).toContain('href="/admin"');
+    for (const route of ["/", "/admin"]) {
+      expect((await fetch(`${base}${route}`, { method: "POST" })).status).toBe(405);
+      expect((await fetch(`${base}${route}`, { headers: { "cf-ray": "test" } })).status).toBe(route === "/" ? 200 : 401);
+    }
     await new Promise<void>((r) => server.close(() => r()));
     if (saved === undefined) delete process.env.HOLDINGS_LINKS; else process.env.HOLDINGS_LINKS = saved;
   }, 15_000);

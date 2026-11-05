@@ -302,10 +302,50 @@ describe("server", () => {
     await client.close();
   });
 
+  it("allows anonymous read-only library browsing through the tunnel", async () => {
+    const headers = { "cf-ray": "test", host: "holdings.example.com" };
+    const response = await fetch(`${base}/?q=systems&has=text`, { headers });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/html");
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const html = await response.text();
+    expect(html).toContain("Learning Systems Thinking");
+    expect(html).not.toContain('href="/admin"');
+    expect(html).not.toContain("Server health");
+    expect(html).not.toContain("192.168.");
+    expect((await fetch(`${base}/?key=montalion2024learning`, { headers })).status).toBe(200);
+    for (const method of ["POST", "PUT", "DELETE", "PATCH"]) {
+      const denied = await fetch(`${base}/`, { method, headers });
+      expect(denied.status).toBe(405);
+      expect(denied.headers.get("allow")).toBe("GET");
+    }
+    for (const route of ["/admin", "/worklist", "/api/checks", "/health", "/zotero/users/827407/items", "/mcp"]) {
+      expect((await fetch(`${base}${route}`, { headers })).status).toBe(401);
+    }
+    for (const route of ["/api/refresh", "/worklist/dismiss", "/worklist/restore"]) {
+      expect((await fetch(`${base}${route}`, { method: "POST", headers })).status).toBe(401);
+    }
+    expect((await fetch(`${base}/`, { headers: { ...headers, "cf-access-jwt-assertion": "invalid" } })).status).toBe(403);
+    const directStatus = await new Promise<number | undefined>((resolve, reject) => {
+      const request = http.get(`${base}/`, { headers: { host: "holdings.example.com" } }, (response) => {
+        response.resume();
+        resolve(response.statusCode);
+      });
+      request.on("error", reject);
+    });
+    expect(directStatus).toBe(401);
+    const signedIn = await fetch(`${base}/`, { headers: { ...headers, "cf-access-jwt-assertion": token } });
+    expect(signedIn.status).toBe(200);
+    expect(await signedIn.text()).not.toContain('href="/admin"');
+  });
+
   it("needs an Access token through Cloudflare", async () => {
     expect((await fetch(`${base}/health`, { headers: { "cf-ray": "1" } })).status).toBe(401);
     const ok = await fetch(`${base}/health`, { headers: { "cf-ray": "1", "cf-access-jwt-assertion": token } });
     expect(ok.status).toBe(200);
     expect(await ok.json()).toMatchObject({ ok: true });
+    for (const route of ["/admin", "/worklist", "/api/checks", "/zotero/users/827407/items"]) {
+      expect((await fetch(`${base}${route}`, { headers: { "cf-ray": "1", "cf-access-jwt-assertion": token } })).status).toBe(404);
+    }
   });
 });

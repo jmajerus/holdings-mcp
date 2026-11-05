@@ -40,7 +40,12 @@ npm run serve           # MCP at http://localhost:8000/mcp, refreshing every 2 m
 
 ## Zotero through holdings-mcp
 
-On the LAN only (through Access they're a 404), the server answers the part of the Zotero Web API that
+The root library page allows read-only browsing through the Cloudflare tunnel without sign-in;
+its tunnel view has no Admin link. `/admin`, `/worklist`, the Zotero mirror, and maintenance APIs
+remain LAN-only (authenticated tunnel requests get a 404). MCP and health requests through the tunnel
+continue to require a verified Cloudflare Access token.
+
+On the LAN, the server also answers the part of the Zotero Web API that
 corpus-mcp and quote-mcp sync with, from its mirror, notes included:
 
 | Request | Answers |
@@ -49,7 +54,8 @@ corpus-mcp and quote-mcp sync with, from its mirror, notes included:
 | `GET /zotero/<library>/items/top` | The same, for items without a parent |
 | `GET /zotero/<library>/deleted` | Keys deleted for good since a version (`since`) |
 | `POST /api/refresh` | Refreshes now, after any refresh already running: for a service that just wrote to Zotero |
-| `/` | A home page: this server's pages, the core services and clients with whether each is answering. Addresses can be overridden with `HOLDINGS_LINKS` |
+| `/` | Read-only library browsing, also available through the Cloudflare tunnel without sign-in. Library search with minimal stat cards, title/author and exact-key search, and material filters. Search uses `q`, `key`, `has` (text/file/quotes/notes), and `offset` |
+| `/admin` | Library maintenance: worklist access, complete formatted health and check responses (including deployment metadata, finding timestamps, source snapshots, and Zotero readers), feed freshness, and live service links. Addresses can be overridden with `HOLDINGS_LINKS` |
 | `/worklist` | The page below: what the checks found that needs a person |
 | `GET /api/checks` | The cross-service checks in full, and who last read `/zotero`; `since=<time>` limits findings to those first seen since then |
 
