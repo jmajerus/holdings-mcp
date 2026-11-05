@@ -49,6 +49,7 @@ corpus-mcp and quote-mcp sync with, from its mirror, notes included:
 | `GET /zotero/<library>/items/top` | The same, for items without a parent |
 | `GET /zotero/<library>/deleted` | Keys deleted for good since a version (`since`) |
 | `POST /api/refresh` | Refreshes now, after any refresh already running: for a service that just wrote to Zotero |
+| `/` | A home page: this server's pages, the core services and clients with whether each is answering. Addresses can be overridden with `HOLDINGS_LINKS` |
 | `/worklist` | The page below: what the checks found that needs a person |
 | `GET /api/checks` | The cross-service checks in full, and who last read `/zotero`; `since=<time>` limits findings to those first seen since then |
 

@@ -3,6 +3,7 @@ import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { checkResults, checkSummary, runChecks, zoteroReaders } from "../src/checks.js";
 import { type DB, now, openDb } from "../src/db.js";
+import { homePage, probe, readLinks } from "../src/home.js";
 import { serveHttp } from "../src/server.js";
 import { dismiss, worklist } from "../src/worklist.js";
 import { rebuildWorks } from "../src/works.js";
@@ -392,4 +393,81 @@ describe("worklist", () => {
     expect((await fetch(`${base}/worklist`, { method: "DELETE" })).status).toBe(405);
     expect((await fetch(`${base}/worklist/nope`)).status).toBe(404);
   });
+});
+
+describe("home page", () => {
+  const entry = (base: string, path: string) => ({ name: "x", about: "x", base, probe: path, links: [] });
+  let fake: http.Server;
+  let fakeBase: string;
+  beforeEach(async () => {
+    fake = http.createServer((req, res) => {
+      if (req.url === "/health") return void res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, deployed: { commit: "abcdef1234", at: "2026-11-05T01:00:00Z" } }));
+      if (req.url === "/boom") return void res.writeHead(500).end();
+      res.writeHead(400).end();
+    });
+    await new Promise<void>((r) => fake.listen(0, "127.0.0.1", r));
+    fakeBase = `http://127.0.0.1:${(fake.address() as AddressInfo).port}`;
+  });
+  afterEach(() => new Promise<void>((r) => fake.close(() => r())));
+
+  it("says whether a server is up, answering, in trouble, or not there", async () => {
+    expect(await probe(entry(fakeBase, "/health"))).toEqual({ state: "up", commit: "abcdef1", deployedAt: "2026-11-05T01:00:00Z" });
+    expect(await probe(entry(fakeBase, "/mcp"))).toEqual({ state: "answering" });
+    expect(await probe(entry(fakeBase, "/boom"))).toEqual({ state: "problem" });
+    expect(await probe(entry("http://127.0.0.1:1", "/health"))).toEqual({ state: "down" });
+  });
+
+  it("reports a /health saying not ok, or not JSON, as a problem", async () => {
+    const server = http.createServer((_, res) => res.writeHead(200).end("not json"));
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    expect((await probe(entry(`http://127.0.0.1:${(server.address() as AddressInfo).port}`, "/health"))).state).toBe("problem");
+    await new Promise<void>((r) => server.close(() => r()));
+    for (const [answer, expected] of [
+      ["null", { state: "problem" }],
+      ['{"ok":false}', { state: "problem" }],
+      ['{"ok":"yes"}', { state: "problem" }],
+      ['{"ok":true,"deployed":{"commit":7,"at":123}}', { state: "up" }],
+    ] as const) {
+      const unwell = http.createServer((_, res) => res.writeHead(200).end(answer));
+      await new Promise<void>((r) => unwell.listen(0, "127.0.0.1", r));
+      expect(await probe(entry(`http://127.0.0.1:${(unwell.address() as AddressInfo).port}`, "/health"))).toEqual(expected);
+      await new Promise<void>((r) => unwell.close(() => r()));
+    }
+  });
+
+  it("reads overrides, and keeps a bad one out", () => {
+    expect(readLinks("quote-mcp=http://q.example:9000/x, nope, f=ftp://x, =http://y")).toEqual({
+      links: new Map([["quote-mcp", "http://q.example:9000"]]), bad: ["nope", "f=ftp://x", "=http://y"],
+    });
+    expect(readLinks(undefined)).toEqual({ links: new Map(), bad: [] });
+  });
+
+  it("lists the core services and the clients apart, using overrides and feed addresses", async () => {
+    run([], []);
+    db.prepare("UPDATE feeds SET url = 'http://books.example:8000/api/holdings/books' WHERE name = 'books'").run();
+    const everything = "corpus-mcp=@,quote-mcp=@,terminology-mcp=@,zotero-mcp=@,concept-clusters=@".replaceAll("@", fakeBase);
+    const page = await homePage(db, { HOLDINGS_LINKS: everything });
+    const core = page.indexOf("<h2>Core services"), clients = page.indexOf("<h2>Clients");
+    expect(core).toBeGreaterThan(-1);
+    expect(clients).toBeGreaterThan(core);
+    for (const name of ["corpus-mcp", "quote-mcp", "terminology-mcp", "zotero-mcp"]) expect(page.indexOf(`<strong>${name}`)).toBeLessThan(clients);
+    expect(page.indexOf("<strong>concept-clusters")).toBeGreaterThan(clients);
+    expect(page).toContain(`href="${fakeBase}/admin/zotero"`);
+    expect(page).toContain('href="/worklist"');
+    const fromFeed = await homePage(db, { HOLDINGS_LINKS: "quote-mcp=@,terminology-mcp=@,zotero-mcp=@,concept-clusters=@,typo=@".replaceAll("@", fakeBase) });
+    expect(fromFeed).toContain('href="http://books.example:8000/admin"');
+    expect(fromFeed).toContain("entries it can't use: typo");
+  }, 15_000);
+
+  it("is on the LAN only", async () => {
+    run([], []);
+    const saved = process.env.HOLDINGS_LINKS;
+    process.env.HOLDINGS_LINKS = "corpus-mcp=@,quote-mcp=@,terminology-mcp=@,zotero-mcp=@,concept-clusters=@".replaceAll("@", fakeBase);
+    const server = await serveHttp(db, { host: "127.0.0.1", port: 0, access: { lanHosts: ["127.0.0.1"] } });
+    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    expect((await fetch(`${base}/`)).status).toBe(200);
+    expect((await fetch(`${base}/`, { method: "POST" })).status).toBe(405);
+    await new Promise<void>((r) => server.close(() => r()));
+    if (saved === undefined) delete process.env.HOLDINGS_LINKS; else process.env.HOLDINGS_LINKS = saved;
+  }, 15_000);
 });

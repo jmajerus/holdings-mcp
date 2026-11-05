@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const HOST = process.env.HOLDINGS_DEPLOY_HOST ?? "authoring@holdings-mcp.localdomain";
 const ASKPASS = path.join(root, "tools", "askpass.mjs");
-const ENV_NAMES = ["HOLDINGS_ZOTERO_LIBRARIES", "HOLDINGS_ZOTERO_API_KEY", "HOLDINGS_BOOKS_URL", "HOLDINGS_COUNTS_URL", "ACCESS_TEAM_DOMAIN", "HOLDINGS_REFRESH_SECONDS", "HOLDINGS_ZOTERO_READERS"];
+const ENV_NAMES = ["HOLDINGS_ZOTERO_LIBRARIES", "HOLDINGS_ZOTERO_API_KEY", "HOLDINGS_BOOKS_URL", "HOLDINGS_COUNTS_URL", "ACCESS_TEAM_DOMAIN", "HOLDINGS_REFRESH_SECONDS", "HOLDINGS_ZOTERO_READERS", "HOLDINGS_LINKS"];
 
 const USAGE = `Usage: npm run deploy -- [--provision | --env] [--skip-tests]
 
