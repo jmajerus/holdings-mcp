@@ -8,6 +8,7 @@ import { checkResults, checkSummary, zoteroReads } from "./checks.js";
 import type { DB } from "./db.js";
 import { AccessError, authorizeRequest, requestAccessConfig, type RequestAccessConfig } from "./http-access.js";
 import { VERSION, createServer } from "./mcp.js";
+import { homePage } from "./home.js";
 import { holdingsStatus } from "./queries.js";
 import type { Refresher } from "./refresh.js";
 import { sendWorklist, worklistCount } from "./worklist.js";
@@ -18,7 +19,7 @@ import { sendZoteroApi } from "./zotero-api.js";
  * quote-mcp's pattern. Requests through Cloudflare need a verified Access token; direct LAN requests don't.
  * On the LAN only (a 404 through Access): the Zotero mirror at /zotero (src/zotero-api.ts), and
  * POST /api/refresh, which refreshes now, so a service that just wrote to Zotero can see it here; and
- * GET /api/checks, the cross-service checks in full (src/checks.ts); and /worklist, what they found that needs a
+ * GET /api/checks, the cross-service checks in full (src/checks.ts); / linking to everything (src/home.ts); and /worklist, what they found that needs a
  * person (src/worklist.ts).
  */
 
@@ -52,6 +53,10 @@ export function serveHttp(db: DB, options: ServeOptions): Promise<http.Server> {
           ok: true, version: VERSION, works: status.works.total, last_refresh: status.last_refresh, errors, checks: checkSummary(db), worklist: worklistCount(db), deployed: readDeployed(),
         }));
         return;
+      }
+      if (url.pathname === "/" && via === "lan") {
+        if (req.method !== "GET") return void res.writeHead(405, { allow: "GET" }).end();
+        return void res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" }).end(await homePage(db));
       }
       if (url.pathname.startsWith("/zotero/") || url.pathname === "/api/refresh" || url.pathname === "/api/checks" || url.pathname === "/worklist" || url.pathname.startsWith("/worklist/")) {
         if (via !== "lan") return void res.writeHead(404, { "content-type": "application/json" }).end(JSON.stringify({ error: "Not found." }));
