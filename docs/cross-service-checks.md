@@ -102,7 +102,11 @@ The quote and anchor checks need read-only snapshots. Each is LAN-only, with an 
   `GET /api/checks` also list `zotero_readers`.
 
 On live data at 2026-11-04: five checks `ok`, none failing; `one-work-per-exact-key` at
-`drift` with 41 citekeys, each a work held in both libraries; `likely-missed-matches` `ok` with none, across the 72 unmatched books with an ISBN (the other 486 have none in Calibre).
+`drift` with 41 citekeys (28 a work held in both libraries, 11 pairs of placeholder records, 2 pairs inside one library); `likely-missed-matches` `ok` with none, across the 72 unmatched books with an ISBN (the other 486 have none in Calibre).
+
+**`/worklist`** (built) is a LAN page over these results for what needs a person, with links to the fix and a
+dismissal with a reason. It isn't a queue of its own. The parser audit's records in quote-mcp aren't in it; step 2's
+quote feed would bring them in.
 
 ## Checks after a deploy
 

@@ -11,13 +11,15 @@ import Database from "better-sqlite3";
  * - works, work_keys, holdings, and works_fts are rebuilt from those after every refresh (src/works.ts);
  * - checks and check_findings hold the last cross-service checks (src/checks.ts), and zotero_readers who last
  *   read /zotero; all of them refill themselves after a restore, though a finding's first_seen starts over;
+ * - check_dismissals records findings a person judged acceptable, with their reason (src/worklist.ts). Like
+ *   former_keys, it can't be rebuilt from the sources;
  * - former_keys records interim keys (calibre:…, quote:…) whose work was later filed in Zotero, so they keep
  *   resolving. It can't be rebuilt from the sources, so back it up with the rest.
  */
 
 export type DB = Database.Database;
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -70,6 +72,10 @@ CREATE TABLE IF NOT EXISTS checks (
 CREATE TABLE IF NOT EXISTS check_findings (
   check_name TEXT NOT NULL, ref TEXT NOT NULL, detail TEXT NOT NULL, severity TEXT NOT NULL,
   first_seen TEXT NOT NULL, last_seen TEXT NOT NULL, PRIMARY KEY (check_name, ref)
+);
+-- Findings a person judged acceptable, as they read then: different wording brings one back.
+CREATE TABLE IF NOT EXISTS check_dismissals (
+  check_name TEXT NOT NULL, ref TEXT NOT NULL, detail TEXT NOT NULL, reason TEXT NOT NULL, at TEXT NOT NULL, PRIMARY KEY (check_name, ref)
 );
 -- Who reads /zotero: by client address and library, when last, and the since it asked from.
 CREATE TABLE IF NOT EXISTS zotero_readers (

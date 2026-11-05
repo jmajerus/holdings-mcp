@@ -49,6 +49,7 @@ corpus-mcp and quote-mcp sync with, from its mirror, notes included:
 | `GET /zotero/<library>/items/top` | The same, for items without a parent |
 | `GET /zotero/<library>/deleted` | Keys deleted for good since a version (`since`) |
 | `POST /api/refresh` | Refreshes now, after any refresh already running: for a service that just wrote to Zotero |
+| `/worklist` | The page below: what the checks found that needs a person |
 | `GET /api/checks` | The cross-service checks in full, and who last read `/zotero`; `since=<time>` limits findings to those first seen since then |
 
 Each sets `Last-Modified-Version` and, for listings, `Total-Results`, as Zotero does. The versions are
@@ -67,7 +68,11 @@ It's as fresh as the last refresh: every `HOLDINGS_REFRESH_SECONDS` (120 by defa
 
 After every refresh holdings-mcp tests what must hold between the services and reports it; it never fixes
 anything ([docs/cross-service-checks.md](docs/cross-service-checks.md)). `/health` has the summary,
-`holdings_status` and `GET /api/checks` the results. To check who reads the Zotero mirror, list them:
+`holdings_status` and `GET /api/checks` the results. `/worklist` on the LAN lists what needs a person, with links
+to where each fix happens: anything failing, likely missed matches, and a citekey clash inside one library. A
+citekey shared across your two libraries is expected and left out. Fix an item at its source and it leaves at the
+next refresh. To accept one, dismiss it with a reason, kept in the store; different wording brings it back, as does
+its returning after it went away. To check who reads the Zotero mirror, list them:
 
 ```bash
 HOLDINGS_ZOTERO_READERS=corpus-mcp=192.168.1.179:300,quote-mcp=192.168.1.210:1800   # name=address:seconds it syncs every
