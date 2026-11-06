@@ -40,8 +40,16 @@ npm run serve           # MCP at http://localhost:8000/mcp, refreshing every 2 m
 
 ## Zotero through holdings-mcp
 
+Research to-dos from any source whose citekeys begin with `placeholder` (case-insensitive, with an optional leading `@`) are excluded from the holdings index;
+they and their notes remain intact in Zotero and its mirror. Incomplete real references remain searchable.
+
 The root library page allows read-only browsing through the Cloudflare tunnel without sign-in;
-its tunnel view has no Admin link. `/admin`, `/worklist`, the Zotero mirror, and maintenance APIs
+its tunnel view has no Admin link. Search result citekeys link to the Zotero record, falling back to the corpus or quote record for works outside Zotero. Calibre, Zotero, and quote glyphs link directly to their respective records. Expand the disclosure arrow for Zotero desktop links and locating instructions
+for each Calibre copy (library, book ID, formats, and an exact `id:` search). On the LAN,
+Calibre links open the book’s corpus detail page; set `HOLDINGS_CATALOG_URL` to your public
+corpus catalogue base URL to offer book links to tunnel visitors too. Without a public catalogue,
+remote visitors still see the locating instructions. Set `HOLDINGS_QUOTES_URL` to the public quote site
+to link directly to each current quote-store record, including works matched to Zotero. Zotero child notes are counted in results and included by the Notes filter. Their readable text appears in expanded details on the LAN; public visitors see the count and a link to the Zotero record. `/admin`, `/worklist`, the Zotero mirror, and maintenance APIs
 remain LAN-only (authenticated tunnel requests get a 404). MCP and health requests through the tunnel
 continue to require a verified Cloudflare Access token.
 

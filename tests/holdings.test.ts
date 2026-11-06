@@ -88,6 +88,30 @@ beforeEach(async () => {
 });
 
 describe("works", () => {
+  it("excludes explicit placeholder to-dos from holdings without removing their mirror records or notes", async () => {
+    const before = holdingsStatus(db).works.total;
+    addItem(db, "TODO0001", { itemType: "journalArticle", title: "", citationKey: "placeholder-research" });
+    addItem(db, "TODO0002", { itemType: "book", title: "Research task", extra: "Citation Key: placeholder-source" });
+    for (const [i, citekey] of ["placeholder", "placeholderResearch", "placeholder_2026", "@Placeholder:source"].entries()) {
+      addItem(db, `TODO000${i + 3}`, { itemType: "book", title: "To do", citationKey: citekey });
+    }
+    books([{ calibre_uuid: null, book_id: "main:9999", library: "main", title: "Calibre todo", authors: [], formats: ["pdf"], has_text: true, citekey: "placeholderCalibre", zotero: null }]);
+    counts([{ work_id: 9999, title: "Quote todo", match: "unmatched", quotes: 1, notes: 0, verified: 0, citekey: "@placeholderQuote" }]);
+    addItem(db, "TODONOTE", { itemType: "note", note: "Find and verify a source" }, "TODO0001");
+    addItem(db, "REAL0001", { itemType: "book", title: "", citationKey: "author2026" });
+    addItem(db, "REAL0002", { itemType: "book", title: "A study of placeholders", citationKey: "author2026placeholders" });
+    await refresh(db, { zotero: [], env, force: true });
+    expect(holdingsStatus(db).works.total).toBe(before + 2);
+    expect(findWork(db, { key: "placeholder-research" }).total).toBe(0);
+    expect(findWork(db, { key: "placeholder-source" }).total).toBe(0);
+    for (const key of ["placeholder", "placeholderResearch", "placeholder_2026", "@Placeholder:source", "main:9999", "quote:9999"]) {
+      expect(findWork(db, { key }).total, key).toBe(0);
+    }
+    expect(findWork(db, { key: "author2026" }).total).toBe(1);
+    expect(findWork(db, { key: "author2026placeholders" }).total).toBe(1);
+    expect((db.prepare("SELECT COUNT(*) AS n FROM zotero_items WHERE key IN ('TODO0001', 'TODO0002', 'TODONOTE') AND deleted = 0").get() as { n: number }).n).toBe(3);
+  });
+
   it("joins a Calibre book and quote counts to the Zotero item they're matched to", () => {
     const w = getWork(db, "montalion2024learning") as Record<string, any>;
     expect(w.key).toBe(`zotero:${LIB}/MONT2024`);
@@ -172,7 +196,8 @@ describe("find_work", () => {
     const r = findWork(db, { query: "victory" });
     expect(r.works.map((w) => w.key)).toEqual(expect.arrayContaining([`zotero:${LIB}/ROBE1993`, `zotero:${LIB}/ROBE2001`, "quote:52"]));
     expect(findWork(db, { query: "victory", has: ["quotes"] }).works.map((w) => w.key).sort()).toEqual(["quote:52", `zotero:${LIB}/ROBE1993`]);
-    expect(findWork(db, { has: ["notes"] }).total).toBe(2);
+    expect(findWork(db, { has: ["notes"] }).total).toBe(3);
+    expect(findWork(db, { has: ["notes"] }).works.find((w) => w.key === `zotero:${LIB}/MONT2024`)?.holdings.notes).toEqual({ zotero_notes: 1 });
     expect(findWork(db, { has: ["text"] }).works.map((w) => w.title).sort()).toEqual(["Learning Systems Thinking", "Thinking in Systems"]);
   });
 

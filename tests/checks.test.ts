@@ -5,7 +5,7 @@ import path from "node:path";
 import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkResults, checkSummary, runChecks, zoteroReaders } from "../src/checks.js";
-import { type DB, now, openDb } from "../src/db.js";
+import { type DB, now, openDb, setMeta } from "../src/db.js";
 import { adminPage, homePage, present, probe, readLinks } from "../src/home.js";
 import { serveHttp } from "../src/server.js";
 import { dismiss, worklist } from "../src/worklist.js";
@@ -403,6 +403,8 @@ describe("home page", () => {
   let fake: http.Server;
   let fakeBase: string;
   beforeEach(async () => {
+    setMeta(db, `zotero_web_base:${LIB}`, "https://www.zotero.org/testuser");
+    setMeta(db, "zotero_web_base:groups/42", "https://www.zotero.org/groups/42/test_group");
     fake = http.createServer((req, res) => {
       if (req.url === "/health") return void res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, deployed: { commit: "abcdef1234", at: "2026-11-05T01:00:00Z" } }));
       if (req.url === "/boom") return void res.writeHead(500).end();
@@ -522,6 +524,145 @@ describe("home page", () => {
     expect(html).toContain("two");
     expect(present([])).toContain("None");
     expect(present(null)).toContain("Not available");
+  });
+
+  it("marks current Calibre and Zotero locations independently, including files without searchable text", async () => {
+    item("AAAA0001", { title: "Both libraries" });
+    item("AAAA0002", { title: "Zotero only" });
+    run([
+      book("main:1", { zotero: { library: LIB, key: "AAAA0001" } }),
+      book("main:2", { title: "Calibre only", has_text: false }),
+    ], [quoted(1, { title: "Quotes only", match: "unmatched" })]);
+    const page = await homePage(db, dashboardEnv());
+    const row = (title: string) => page.split('<li>').find((part) => part.includes(`<strong>${title}</strong>`))!.split('</li>')[0];
+    expect(row("Both libraries")).toContain('aria-label="In Calibre"');
+    expect(row("Both libraries")).toContain('aria-label="In Zotero"');
+    expect(row("Zotero only")).toContain('aria-label="In Zotero"');
+    expect(row("Zotero only")).not.toContain('aria-label="In Calibre"');
+    expect(row("Calibre only")).toContain('aria-label="In Calibre"');
+    expect(row("Calibre only")).not.toContain('aria-label="In Zotero"');
+    expect(row("Quotes only")).not.toContain('class="location-icon');
+    // Retain the old Calibre alias, but remove the actual book from its current feed.
+    db.prepare("INSERT INTO former_keys (key, work_key, at) VALUES (?, ?, ?)").run("calibre:old-copy", `zotero:${LIB}/AAAA0002`, now());
+    run([], []);
+    for (const title of ["Both libraries", "Zotero only"]) {
+      const updated = await homePage(db, dashboardEnv(), new URLSearchParams({ q: title }));
+      const result = updated.split('<ul class="works">')[1];
+      expect(result).toContain('aria-label="In Zotero"');
+      expect(result).not.toContain('aria-label="In Calibre"');
+    }
+  });
+
+  it("provides usable Zotero links and exact Calibre locating instructions for every copy", async () => {
+    item("AAAA0001", { title: "Located book" });
+    item("AAAA0002", { title: "Group book" }, { library: "groups/42" });
+    run([
+      book("main:123", { zotero: { library: LIB, key: "AAAA0001" } }),
+      book("scans:456", { library: "scans", has_text: false, zotero: { library: LIB, key: "AAAA0001" } }),
+    ], [quoted(9, { title: "Quote without match", match: "unmatched" })]);
+    const lan = await homePage(db, dashboardEnv());
+    expect(lan).not.toContain("Where to find this work");
+    expect(lan).toContain(`href="https://www.zotero.org/testuser/items/AAAA0001"`);
+    expect(lan).toContain('href="zotero://select/library/items/AAAA0001"');
+    expect(lan).toContain('href="zotero://select/groups/42/items/AAAA0002"');
+    expect(lan).toContain('href="https://www.zotero.org/groups/42/test_group/items/AAAA0002"');
+    expect(lan).toContain(`href="${fakeBase}/admin/books/main%3A123"`);
+    expect(lan).toContain(`href="${fakeBase}/admin/books/scans%3A456"`);
+    for (const text of ["id:123", "id:456", "PDF", 'aria-label="Location details for Located book"', "quote-store record without a confirmed"]) expect(lan).toContain(text);
+    const remote = await homePage(db, dashboardEnv(), new URLSearchParams(), false);
+    expect(remote).not.toContain(fakeBase);
+    expect(remote).not.toContain("localdomain");
+    expect(remote).toContain("id:123");
+    expect(remote).toContain('href="https://www.zotero.org/');
+    const publicCatalog = await homePage(db, { ...dashboardEnv(), HOLDINGS_CATALOG_URL: "https://books.example.org/catalog/" }, new URLSearchParams(), false);
+    expect(publicCatalog).toContain('href="https://books.example.org/catalog/books/main%3A123"');
+    expect(publicCatalog).toContain('href="https://books.example.org/catalog/books/scans%3A456"');
+    const unsafe = await homePage(db, { HOLDINGS_CATALOG_URL: "javascript:alert(1)" }, new URLSearchParams(), false);
+    expect(unsafe).not.toContain("javascript:");
+    expect(unsafe).toContain("id:123");
+  });
+
+  it("links quotes by current work IDs even when matched to Zotero, excluding historical aliases", async () => {
+    item("AAAA0001", { title: "Matched quotes" });
+    run([], [
+      quoted(7, { zotero: { library: LIB, key: "AAAA0001" }, former_work_ids: [3] }),
+      quoted(8, { zotero: { library: LIB, key: "AAAA0001" } }),
+      quoted(9, { title: "Unmatched quotes", match: "unmatched" }),
+    ]);
+    const env = { HOLDINGS_QUOTES_URL: "http://quotes.majerus.us/" };
+    const page = await homePage(db, env, new URLSearchParams(), false);
+    for (const id of [7, 8, 9]) expect(page).toContain(`href="http://quotes.majerus.us/works/${id}"`);
+    expect(page).not.toContain('href="http://quotes.majerus.us/works/3"');
+    expect(page).toContain('href="https://www.zotero.org/testuser/items/AAAA0001"');
+    expect(page).toContain("Read quotes");
+    const unsafe = await homePage(db, { HOLDINGS_QUOTES_URL: "javascript:alert(1)" }, new URLSearchParams(), false);
+    expect(unsafe).not.toContain("javascript:");
+  });
+
+  it("uses citekeys and glyphs for direct navigation without repeated action rows", async () => {
+    item("AAAA0001", { title: "Both sources", citationKey: "both2026" });
+    run([
+      book("main:1", { zotero: { library: LIB, key: "AAAA0001" } }),
+      book("main:2", { title: "Calibre source", citekey: "calibre2026" }),
+    ], [
+      quoted(7, { zotero: { library: LIB, key: "AAAA0001" } }),
+      quoted(9, { title: "Quote source", citekey: "quotes2026", match: "unmatched" }),
+    ]);
+    const page = await homePage(db, { HOLDINGS_CATALOG_URL: "https://books.example.org", HOLDINGS_QUOTES_URL: "https://quotes.example.org" }, new URLSearchParams(), false);
+    const row = (title: string) => page.split('<li>').find((part) => part.includes(`<strong>${title}</strong>`))!.split('</li>')[0];
+    const both = row("Both sources");
+    expect(both).toContain('<a class="citekey-link" href="https://www.zotero.org/testuser/items/AAAA0001" title="View in Zotero"><code>@both2026</code></a>');
+    expect(both).toContain('aria-label="Open Calibre record"');
+    expect(both).toContain('aria-label="Open Zotero record"');
+    expect(both).toContain('aria-label="Open Quotes record"');
+    expect(row("Calibre source")).toContain('<a class="citekey-link" href="https://books.example.org/books/main%3A2"');
+    expect(row("Quote source")).toContain('<a class="citekey-link" href="https://quotes.example.org/works/9"');
+    expect(page).not.toContain('class="work-links"');
+    expect(page).not.toContain('>Open Zotero record</a>');
+    expect(page).not.toContain('>Open Calibre book details</a>');
+  });
+
+  it("falls back to Zotero desktop rather than inventing a numeric-user web URL", async () => {
+    item("AAAA0001", { title: "Fallback", citationKey: "fallback2026" });
+    run([], []);
+    db.prepare("DELETE FROM meta WHERE key = ?").run(`zotero_web_base:${LIB}`);
+    const page = await homePage(db, dashboardEnv());
+    expect(page).toContain('<a class="citekey-link" href="zotero://select/library/items/AAAA0001"');
+    expect(page).not.toContain("https://www.zotero.org/users/");
+    expect(page).not.toContain('href="">Open web library');
+  });
+
+  it("shows Zotero child notes in LAN details, distinguishes them from empty records, and filters them", async () => {
+    item("AAAA0001", { title: "", citationKey: "research2026" });
+    item("AAAA0002", { title: "No notes" });
+    item("AAAA0003", { title: "Deleted note only" });
+    item("AAAA0004", { title: "Group notes" }, { library: "groups/42" });
+    const note = (key: string, parent: string, html: string, deleted = 0, library = LIB) => {
+      db.prepare("INSERT INTO zotero_items (library, key, version, item_type, parent_key, deleted, data) VALUES (?, ?, 1, 'note', ?, ?, ?)")
+        .run(library, key, parent, deleted, JSON.stringify({ itemType: "note", parentItem: parent, note: html }));
+    };
+    note("NOTE0001", "AAAA0001", '<p>Find the source &amp; verify.</p><p>Private research &#x20AC; &#65;<img src=x onerror="bad()"></p><script>bad()</script>');
+    note("NOTE0002", "AAAA0001", "Deleted note text", 1);
+    note("NOTE0003", "AAAA0003", "Other deleted note", 1);
+    note("NOTE0004", "AAAA0004", "Group research", 0, "groups/42");
+    run([], []);
+    const page = await homePage(db, dashboardEnv(), new URLSearchParams({ has: "notes" }));
+    expect(page).toContain("2 matching works");
+    expect(page).toContain("Find the source &amp; verify.");
+    expect(page).toContain("Private research € A");
+    expect(page).toContain("Group research");
+    expect(page).toContain("1 Zotero note");
+    expect(page).not.toContain("Bibliographic record only");
+    expect(page).not.toContain("no searchable text, files, quotes, or notes");
+    expect(page).not.toContain("Deleted note text");
+    expect(page).not.toContain("bad()");
+    expect(page).not.toContain("<img");
+    const publicPage = await homePage(db, dashboardEnv(), new URLSearchParams({ has: "notes" }), false);
+    expect(publicPage).toContain("1 Zotero note");
+    expect(publicPage).toContain("Open the Zotero record to read its notes.");
+    expect(publicPage).not.toContain("Private research");
+    expect(publicPage).not.toContain("Find the source");
+    expect(publicPage).not.toContain("Group research");
   });
 
   it("searches and filters works, escapes content, and keeps filters through pagination", async () => {

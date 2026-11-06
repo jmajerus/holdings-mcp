@@ -6,7 +6,7 @@ import { type DB, getMeta, openDb, setMeta } from "../src/db.js";
 import { type Refresher, startRefresh } from "../src/refresh.js";
 import { serveHttp } from "../src/server.js";
 import { syncLibrary } from "../src/sync.js";
-import { ZoteroClient } from "../src/zotero.js";
+import { ZoteroClient, zoteroWebBase } from "../src/zotero.js";
 
 /**
  * Phase 4: corpus-mcp and quote-mcp sync from holdings-mcp's /zotero as they would from Zotero. The sync here
@@ -19,7 +19,7 @@ const LIB = "users/1";
 /** A Zotero library on the Web API, as far as the syncs use it. */
 class FakeZotero {
   version = 0;
-  items = new Map<string, { key: string; version: number; data: Record<string, unknown> }>();
+  items = new Map<string, { links?: { alternate: { href: string } }; key: string; version: number; data: Record<string, unknown> }>();
   deletions = new Map<string, number>();
   requests: string[] = [];
   /** Run when /deleted is asked for: a change landing between a sync's two requests. */
@@ -27,7 +27,7 @@ class FakeZotero {
 
   put(key: string, data: Record<string, unknown>) {
     this.version++;
-    this.items.set(key, { key, version: this.version, data: { key, version: this.version, ...data } });
+    this.items.set(key, { key, version: this.version, links: { alternate: { href: `https://www.zotero.org/testuser/items/${key}` } }, data: { key, version: this.version, ...data } });
     this.deletions.delete(key);
   }
 
@@ -106,6 +106,23 @@ beforeEach(() => {
 });
 
 describe("the Zotero mirror at /zotero", () => {
+  it("caches API-supplied web addresses and backfills existing mirrors without a full resync", async () => {
+    await refresher.now();
+    expect(getMeta(holdings, `zotero_web_base:${LIB}`)).toBe("https://www.zotero.org/testuser");
+    holdings.prepare("DELETE FROM meta WHERE key = ?").run(`zotero_web_base:${LIB}`);
+    zotero.requests = [];
+    await refresher.now();
+    expect(getMeta(holdings, `zotero_web_base:${LIB}`)).toBe("https://www.zotero.org/testuser");
+    expect(zotero.requests.filter((r) => r.includes("limit=1") && !r.includes("since="))).toHaveLength(1);
+    const sample = { key: "AAAA0001", version: 1, data: { itemType: "book" }, links: { alternate: { href: "https://www.zotero.org/workcreatively/items/AAAA0001" } } };
+    expect(zoteroWebBase(sample, LIB)).toBe("https://www.zotero.org/workcreatively");
+    sample.links.alternate.href = "https://evil.example/items/AAAA0001";
+    expect(zoteroWebBase(sample, LIB)).toBeNull();
+    sample.links.alternate.href = "https://www.zotero.org/groups/42/research/items/AAAA0001";
+    expect(zoteroWebBase(sample, "groups/42")).toBe("https://www.zotero.org/groups/42/research");
+    expect(zoteroWebBase(sample, "groups/4")).toBeNull();
+  });
+
   it("gives a service syncing through it the mirror it would get from Zotero, before and after changes", async () => {
     // A service that synced from Zotero before holdings-mcp existed, and switches to it later.
     const switching = openDb(":memory:");

@@ -14,6 +14,7 @@ import { type BookEntry, type CountEntry, snapshot } from "./feeds.js";
 
 /** Zotero item types that are parts of a work, never works. */
 const NOT_WORKS = new Set(["note", "attachment", "annotation"]);
+const isPlaceholderCitekey = (key: string | null | undefined) => /^@?placeholder/i.test(key?.trim() ?? "");
 
 interface ZoteroData {
   itemType: string; title?: string; caseName?: string; subject?: string; nameOfAct?: string; date?: string;
@@ -83,6 +84,8 @@ export function rebuildWorks(db: DB): RebuildResult {
   for (const item of items) {
     if (item.parent_key || NOT_WORKS.has(item.item_type)) continue;
     const data = JSON.parse(item.data) as ZoteroData;
+    // Explicit research to-dos are retained in the mirror, but are not works in the holdings index.
+    if (isPlaceholderCitekey(citekeyOf(data))) continue;
     const key = workKey(item.library, item.key);
     works.set(key, {
       key, kind: "zotero", item_type: item.item_type, title: data.title ?? data.caseName ?? data.subject ?? data.nameOfAct ?? "(untitled)",
@@ -101,6 +104,7 @@ export function rebuildWorks(db: DB): RebuildResult {
   }
 
   for (const book of books) {
+    if (isPlaceholderCitekey(book.citekey)) continue;
     const isbns = isbnsOf((book.isbns ?? []).join(" "));
     const matched = book.zotero ? workKey(book.zotero.library, book.zotero.key) : null;
     let target = matched && works.get(matched)?.kind === "zotero" ? matched : null;
@@ -130,6 +134,7 @@ export function rebuildWorks(db: DB): RebuildResult {
   }
 
   for (const entry of counts) {
+    if (isPlaceholderCitekey(entry.citekey)) continue;
     const matched = entry.zotero ? workKey(entry.zotero.library, entry.zotero.key) : null;
     // A work quoted from a Calibre book joins that book's work: an exact link, not a guess from its title.
     let target = matched && works.get(matched)?.kind === "zotero" ? matched : (entry.calibre_uuid && bookWorks.get(entry.calibre_uuid)) || null;

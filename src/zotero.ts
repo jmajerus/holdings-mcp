@@ -14,6 +14,7 @@ export interface ZoteroConfig {
 }
 
 export interface ApiItem {
+  links?: { alternate?: { href?: string } };
   key: string;
   version: number;
   data: {
@@ -22,6 +23,21 @@ export interface ApiItem {
     tags?: { tag: string; type?: number }[];
     creators?: { creatorType: string; lastName?: string; firstName?: string; name?: string }[];
   };
+}
+
+/** The API supplies the browser URL; numeric user IDs are not browser usernames. */
+export function zoteroWebBase(item: ApiItem, library: string): string | null {
+  try {
+    const url = new URL(item.links?.alternate?.href ?? "");
+    const suffix = `/items/${item.key}`;
+    const path = url.pathname.replace(/\/$/, "");
+    if (!["https:", "http:"].includes(url.protocol) || !["www.zotero.org", "zotero.org"].includes(url.hostname)
+      || url.port || url.username || url.password || url.search || url.hash || !path.endsWith(suffix)) return null;
+    const base = path.slice(0, -suffix.length);
+    if (library.startsWith("groups/") ? !(base === `/${library}` || base.startsWith(`/${library}/`)) || !/^\/groups\/\d+(?:\/[^/]+)?$/.test(base)
+      : !/^\/[^/]+$/.test(base)) return null;
+    return `https://www.zotero.org${base}`;
+  } catch { return null; }
 }
 
 /** One config per library in HOLDINGS_ZOTERO_LIBRARIES, all with the same key. */

@@ -1,6 +1,6 @@
 import { checkSummary } from "./checks.js";
 import { healthStatus } from "./health.js";
-import type { DB } from "./db.js";
+import { type DB, getMeta } from "./db.js";
 import { findWork, holdingsStatus, ToolError, type Has } from "./queries.js";
 import { worklistCount } from "./worklist.js";
 
@@ -142,7 +142,76 @@ const CHECK_LABELS: Record<string, string> = {
 };
 const RESULT_LABELS: Record<string, string> = { ok: "Passed", drift: "Drift", fail: "Failed", skipped: "Not checked" };
 
-function library(db: DB, params: URLSearchParams): string {
+function locationGlyph(location: "Calibre" | "Zotero" | "Quotes"): string {
+  const drawing = location === "Calibre"
+    ? '<path d="M3 7h4v13H3zM10 3h4v17h-4zM16 6l4-1 3 14-4 1z"/>'
+    : location === "Zotero" ? '<path d="M5 5h14L5 19h14"/>'
+    : '<path d="M4 6h6v8H4zM10 14l-3 4M14 6h6v8h-6zM20 14l-3 4"/>';
+  return `<span class="location-icon ${location.toLowerCase()}" role="img" aria-label="In ${location}" title="In ${location}"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${drawing}</svg></span>`;
+}
+
+function catalogBase(value: string | undefined): string | null {
+  try {
+    const url = new URL(value ?? "");
+    if (!["https:", "http:"].includes(url.protocol) || url.username || url.password || url.search || url.hash) return null;
+    return url.href.replace(/\/+$/, "");
+  } catch { return null; }
+}
+
+/** Display Zotero note HTML as readable text; never insert source markup into the page. */
+function noteText(html: string): string {
+  return html.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, "")
+    .replace(/<br\s*\/?>|<\/(?:p|div|h[1-6]|li)>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/gi, (entity, name: string) => {
+      const named: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+      if (!name.startsWith("#")) return named[name.toLowerCase()] ?? entity;
+      const code = name[1].toLowerCase() === "x" ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
+      return code > 0 && code <= 0x10ffff && !(code >= 0xd800 && code <= 0xdfff) ? String.fromCodePoint(code) : "�";
+    }).replace(/\n[ \t]*\n(?:[ \t]*\n)+/g, "\n\n").trim();
+}
+
+/** Links and finding instructions use current copies, never former keys or guessed matches. */
+function workLocations(db: DB, work: ReturnType<typeof findWork>["works"][number], corpus: string | null, quotesBase: string | null, lan: boolean) {
+  const copies = (db.prepare("SELECT detail FROM holdings WHERE work_key = ? AND form IN ('text', 'file') ORDER BY ref").all(work.key) as { detail: string }[])
+    .map((row) => JSON.parse(row.detail) as { source?: string; book_id?: string; library?: string; formats?: string[] })
+    .filter((copy) => copy.source === "calibre" && typeof copy.book_id === "string");
+  const zotero = /^zotero:(users|groups)\/(\d+)\/([A-Z0-9]{8})$/.exec(work.key);
+  const notes = zotero ? (db.prepare("SELECT key, data FROM zotero_items WHERE library = ? AND parent_key = ? AND item_type = 'note' AND deleted = 0 ORDER BY key").all(`${zotero[1]}/${zotero[2]}`, zotero[3]) as { key: string; data: string }[])
+    .map((row) => ({ key: row.key, text: noteText((JSON.parse(row.data) as { note?: string }).note ?? "") })) : [];
+  const webBase = zotero ? getMeta(db, `zotero_web_base:${zotero[1]}/${zotero[2]}`) : null;
+  const web = webBase && zotero ? `${webBase}/items/${zotero[3]}` : null;
+  const app = zotero ? `zotero://select/${zotero[1] === "groups" ? `groups/${zotero[2]}` : "library"}/items/${zotero[3]}` : null;
+  const bookLink = (id: string) => corpus ? `${corpus}/${encodeURIComponent(id)}` : null;
+  const quoteIds = [...new Set((db.prepare("SELECT detail FROM holdings WHERE work_key = ? AND form = 'quotes'").all(work.key) as { detail: string }[])
+    .map((row) => (JSON.parse(row.detail) as { work_id?: number }).work_id)
+    .filter((id): id is number => typeof id === "number" && Number.isSafeInteger(id) && id > 0))];
+  const quoteLinks = quotesBase ? quoteIds.map((id) => `<a href="${esc(quotesBase)}/works/${id}">Read quotes${quoteIds.length > 1 ? ` (record ${id})` : ""}</a>`) : [];
+  const linkedGlyph = (location: "Calibre" | "Zotero" | "Quotes", href: string | null) => href
+    ? `<a class="location-link" href="${esc(href)}" aria-label="Open ${location} record" title="Open ${location} record">${locationGlyph(location)}</a>`
+    : locationGlyph(location);
+  const firstBook = copies.length ? bookLink(copies[0].book_id!) : null;
+  const firstQuotes = quotesBase && quoteIds.length ? `${quotesBase}/works/${quoteIds[0]}` : null;
+  const glyphs = `${copies.length ? linkedGlyph("Calibre", firstBook) : ""}${zotero ? linkedGlyph("Zotero", web ?? app) : ""}${firstQuotes ? linkedGlyph("Quotes", firstQuotes) : ""}`;
+  // A citekey names its Zotero record first; works outside Zotero fall back to their actual holding.
+  const primaryHref = web ?? app ?? firstBook ?? firstQuotes;
+  const primaryLabel = zotero ? "Zotero" : firstBook ? "Calibre" : "Quotes";
+  const finding = `<details class="work-location"><summary aria-label="Location details for ${esc(work.title || "Untitled work")}"></summary>
+    ${zotero ? `<p><strong>Zotero:</strong> ${zotero[1] === "groups" ? "Group" : "User"} library ${esc(zotero[2])}, item <code>${esc(zotero[3])}</code>.<br>${web ? `<a href="${esc(web)}">Open web library</a> · ` : ""}<a href="${esc(app)}">Select in Zotero desktop</a><br><span class="s">The web library may require sign-in. The desktop link needs Zotero installed and this library synced.</span></p>` : ""}
+    ${copies.map((copy) => {
+      const id = copy.book_id!;
+      const numericId = /:(\d+)$/.exec(id)?.[1];
+      return `<p><strong>Calibre:</strong> library <strong>${esc(copy.library || id.split(":")[0])}</strong>, book <code>${esc(id)}</code>${copy.formats?.length ? ` · ${esc(copy.formats.join(", ").toUpperCase())}` : ""}.<br>${corpus ? `<a href="${esc(bookLink(id))}">Open this copy’s details</a><br>` : ""}${numericId ? `In Calibre, switch to this library and search <code>id:${esc(numericId)}</code>.` : `Search this library for <strong>${esc(work.title)}</strong>.`}</p>`;
+    }).join("")}
+    ${notes.length ? `<div class="zotero-notes"><strong>Zotero notes (${notes.length})</strong>${lan ? notes.map((note) => `<div class="note-text">${esc(note.text || "Empty note")}</div>`).join("") : '<p>Open the Zotero record to read its notes.</p>'}</div>` : ""}
+    ${zotero && !Object.keys(work.holdings).length && !notes.length ? '<p>This is a bibliographic record only: no searchable text, files, quotes, or notes are recorded here.</p>' : ""}
+    ${!copies.length && !zotero ? `<p>This is a quote-store record without a confirmed Zotero or Calibre match. ${firstQuotes ? "The quotes glyph opens its quote-store record." : "Search the quote store for this title or citekey."}</p><p>Record: <code>${esc(work.key)}</code></p>` : ""}
+    ${quoteLinks.length ? `<p><strong>Quotes and notes:</strong> ${quoteLinks.join(" · ")}</p>` : ""}
+    </details>`;
+  return { glyphs, finding, primaryHref, primaryLabel, notesCount: notes.length };
+}
+
+function library(db: DB, params: URLSearchParams, env: NodeJS.ProcessEnv, lan: boolean): string {
   const query = params.get("q")?.trim() ?? "";
   const key = params.get("key")?.trim() ?? "";
   const form = params.get("has") ?? "";
@@ -150,6 +219,9 @@ function library(db: DB, params: URLSearchParams): string {
   const rawOffset = Number(params.get("offset") ?? 0);
   const offset = Number.isSafeInteger(rawOffset) && rawOffset >= 0 ? rawOffset : 0;
   const limit = 20;
+  const { links } = readLinks(env.HOLDINGS_LINKS);
+  const corpus = lan ? `${withAddress(db, SERVICES[0], links).base}/admin/books`
+    : catalogBase(env.HOLDINGS_CATALOG_URL) ? `${catalogBase(env.HOLDINGS_CATALOG_URL)}/books` : null;
   let results = "";
   try {
     const found = findWork(db, { query, key, has: has ? [has] : undefined, limit, offset });
@@ -158,11 +230,11 @@ function library(db: DB, params: URLSearchParams): string {
       return `<a href="/?${esc(next.toString())}#library">${label}</a>`;
     };
     results = found.total ? `<p class="s">${number(found.total)} matching works · showing ${number(offset + 1)}–${number(Math.min(offset + limit, found.total))}</p>
-      <ul class="works">${found.works.map((w) => `<li><strong>${esc(w.title || "Untitled work")}</strong>
+      <ul class="works">${found.works.map((w) => { const location = workLocations(db, w, corpus, catalogBase(env.HOLDINGS_QUOTES_URL), lan); return `<li><div class="work-heading"><strong>${esc(w.title || "Untitled work")}</strong><span class="locations">${location.glyphs}</span></div>
       <div class="s">${esc(w.creators.join(", ") || "Unknown author")}${w.year ? ` · ${esc(w.year)}` : ""}</div>
-      <div>${Object.keys(w.holdings).map((h) => `<span class="badge">${esc(h === "text" ? "Searchable text" : h === "file" ? "Files" : "Quotes / notes")}</span>`).join(" ") || '<span class="s">Bibliographic record only</span>'}</div>
-      <div class="s"><code>${esc(w.citekey ? `@${w.citekey}` : w.key)}</code></div>
-      ${w.cannot_cite?.length ? `<div class="warning">Citation needs attention: ${esc(w.cannot_cite.map((b) => b.replaceAll("_", " ")).join(", "))}</div>` : ""}</li>`).join("")}</ul>
+      <div>${Object.keys(w.holdings).filter((h) => h !== "notes").map((h) => `<span class="badge">${esc(h === "text" ? "Searchable text" : h === "file" ? "Files" : "Quotes / notes")}</span>`).join(" ") || (location.notesCount ? "" : '<span class="s">Bibliographic record only</span>')}${location.notesCount ? ` <span class="badge">${location.notesCount} Zotero ${location.notesCount === 1 ? "note" : "notes"}</span>` : ""}</div>
+      <div class="s">${location.primaryHref ? `<a class="citekey-link" href="${esc(location.primaryHref)}" title="View in ${location.primaryLabel}"><code>${esc(w.citekey ? `@${w.citekey}` : w.key)}</code></a>` : `<code>${esc(w.citekey ? `@${w.citekey}` : w.key)}</code>`}</div>
+      ${w.cannot_cite?.length ? `<div class="warning">Citation needs attention: ${esc(w.cannot_cite.map((b) => b.replaceAll("_", " ")).join(", "))}</div>` : ""}${location.finding}</li>`; }).join("")}</ul>
       <nav class="pagination" aria-label="Search results">${offset ? pageLink(Math.max(0, offset - limit), "← Previous") : ""}${offset + limit < found.total ? pageLink(offset + limit, "Next →") : ""}</nav>`
       : `<p class="empty">${query || key || has ? 'No works match these filters. Try fewer words or <a href="/#library">clear the filters</a>.' : "No works yet. Library records will appear after the first successful refresh."}</p>`;
     if (found.total && offset >= found.total) results = '<p>No works on this page. <a href="/?' + esc(new URLSearchParams({ q: query, key, has: has ?? "" }).toString()) + '#library">Return to the first page</a>.</p>';
@@ -170,7 +242,7 @@ function library(db: DB, params: URLSearchParams): string {
     if (!(error instanceof ToolError)) throw error;
     results = `<p class="problem" role="alert">${esc(error.message)}</p>`;
   }
-  return `<section id="library"><h2>Find a work</h2><p class="s">Browse your library, or search titles and authors. Use * for a word prefix.</p>
+  return `<section id="library"><h2>Find a work</h2><p class="s">Browse your library, or search titles and authors. Use * for a word prefix.</p><p class="location-legend s">Locations: <span>${locationGlyph("Calibre")} Calibre</span><span>${locationGlyph("Zotero")} Zotero</span>${catalogBase(env.HOLDINGS_QUOTES_URL) ? `<span>${locationGlyph("Quotes")} Quotes</span>` : ""}</p>
     <form method="get" action="/#library" class="search">
     <label>Title or author<input type="search" name="q" value="${esc(query)}" placeholder="e.g. systems thinking"></label>
     <label>Citekey, ISBN or item key<input name="key" value="${esc(key)}" placeholder="Optional exact key"></label>
@@ -179,7 +251,7 @@ function library(db: DB, params: URLSearchParams): string {
 }
 
 /** The library page stays local to the store; it never waits for service health probes. */
-export async function homePage(db: DB, _env: NodeJS.ProcessEnv = process.env, params = new URLSearchParams(), showAdmin = true): Promise<string> {
+export async function homePage(db: DB, env: NodeJS.ProcessEnv = process.env, params = new URLSearchParams(), showAdmin = true): Promise<string> {
   const count = (sql: string) => (db.prepare(sql).get() as { n: number }).n;
   const stats: [number, string][] = [
     [count("SELECT COUNT(*) AS n FROM works"), "Works in your library"],
@@ -189,7 +261,7 @@ export async function homePage(db: DB, _env: NodeJS.ProcessEnv = process.env, pa
     ]),
   ];
   return page(false, `<div class="stats">${stats.map(([n, label]) => `<div class="stat"><strong>${number(n)}</strong><span class="s">${label}</span></div>`).join("")}</div>
-    <p class="s">A work may have text, files, and quotes, so these totals can overlap.</p>${library(db, params)}`, showAdmin);
+    <p class="s">A work may have text, files, and quotes, so these totals can overlap.</p>${library(db, params, env, showAdmin)}`, showAdmin);
 }
 
 export async function adminPage(db: DB, env: NodeJS.ProcessEnv = process.env): Promise<string> {
@@ -223,8 +295,8 @@ function page(admin: boolean, content: string, showAdmin = true): string {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Holdings · ${admin ? "Admin" : "Library"}</title><link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <style>
 :root{color-scheme:light dark;--bg:#f4f6f8;--panel:#fff;--text:#202b38;--line:#dce2e8;--mut:#526273;--link:#155b91;--up:#21633e;--warn:#805500;--bad:#ad2525}
-*{box-sizing:border-box}body{font:15px/1.6 system-ui,sans-serif;color:var(--text);background:var(--bg);max-width:76rem;margin:auto;padding:32px 24px}a{color:var(--link);text-underline-offset:3px}h1{font-size:2.3rem;letter-spacing:-.04em;margin:0}h2{font-size:1.25rem;margin:0 0 12px}p{margin:8px 0 16px}header{margin-bottom:24px}nav{display:flex;flex-wrap:wrap;gap:20px}section,.notice{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px;margin:20px 0;scroll-margin-top:20px;overflow-wrap:anywhere}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.stat{padding:18px;background:var(--panel);border:1px solid var(--line);border-radius:10px}.stat strong{display:block;font-size:1.8rem;line-height:1.3}.s{color:var(--mut);font-size:.88rem}.up,.answering{color:var(--up)}.warning{color:var(--warn)}.problem,.down{color:var(--bad)}.badge{display:inline-block;font-size:.8rem;font-weight:600;border:1px solid var(--line);border-radius:5px;padding:2px 7px;margin:2px 0}.notice{border-left:4px solid var(--link)}.notice p{margin:4px 0}.search{display:flex;flex-wrap:wrap;align-items:end;gap:12px}.search label{flex:1 1 180px;font-size:.88rem;font-weight:600}input,select,button{font:inherit;border:1px solid var(--line);border-radius:6px;padding:9px 10px}input,select{display:block;width:100%;margin-top:5px;color:var(--text);background:var(--panel)}button{background:var(--link);color:white;cursor:pointer}nav a[aria-current="page"]{font-weight:700;text-decoration-thickness:3px}a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--link);outline-offset:3px}.works{list-style:none;padding:0}.works li{padding:16px 0;border-bottom:1px solid var(--line)}code{font-size:.85rem;overflow-wrap:anywhere}.pagination{justify-content:space-between}.check{border-top:1px solid var(--line);padding:12px 0}summary{cursor:pointer}.fields{margin:12px 0}.fields>div{display:grid;grid-template-columns:minmax(140px,1fr) minmax(0,3fr);gap:16px;padding:8px 0;border-bottom:1px solid var(--line)}dt{font-weight:600}dd{margin:0;min-width:0}dd ul{margin:0;padding-left:20px}h3{font-size:1rem}.table-wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;text-align:left}th,td{vertical-align:top;padding:12px 14px 12px 0;border-bottom:1px solid var(--line)}th{font-weight:600}.state{white-space:nowrap}.empty{padding:20px 0}.skip{position:absolute;top:-100px}.skip:focus{top:8px;background:var(--panel);padding:8px}
-@media(prefers-color-scheme:dark){:root{--bg:#151c24;--panel:#1d2732;--text:#e1e8ef;--line:#394858;--mut:#adbbc9;--link:#8dc8fa;--up:#8ed4a6;--warn:#e3c277;--bad:#ffa5a5}button{color:#151c24}}
+*{box-sizing:border-box}body{font:15px/1.6 system-ui,sans-serif;color:var(--text);background:var(--bg);max-width:76rem;margin:auto;padding:32px 24px}a{color:var(--link);text-underline-offset:3px}h1{font-size:2.3rem;letter-spacing:-.04em;margin:0}h2{font-size:1.25rem;margin:0 0 12px}p{margin:8px 0 16px}header{margin-bottom:24px}nav{display:flex;flex-wrap:wrap;gap:20px}section,.notice{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px;margin:20px 0;scroll-margin-top:20px;overflow-wrap:anywhere}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.stat{padding:18px;background:var(--panel);border:1px solid var(--line);border-radius:10px}.stat strong{display:block;font-size:1.8rem;line-height:1.3}.s{color:var(--mut);font-size:.88rem}.up,.answering{color:var(--up)}.warning{color:var(--warn)}.problem,.down{color:var(--bad)}.badge{display:inline-block;font-size:.8rem;font-weight:600;border:1px solid var(--line);border-radius:5px;padding:2px 7px;margin:2px 0}.notice{border-left:4px solid var(--link)}.notice p{margin:4px 0}.search{display:flex;flex-wrap:wrap;align-items:end;gap:12px}.search label{flex:1 1 180px;font-size:.88rem;font-weight:600}input,select,button{font:inherit;border:1px solid var(--line);border-radius:6px;padding:9px 10px}input,select{display:block;width:100%;margin-top:5px;color:var(--text);background:var(--panel)}button{background:var(--link);color:white;cursor:pointer}nav a[aria-current="page"]{font-weight:700;text-decoration-thickness:3px}a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--link);outline-offset:3px}.note-text{white-space:pre-wrap;overflow-wrap:anywhere;border-left:2px solid var(--line);padding:8px 12px;margin:8px 0}.work-location{margin-top:8px;font-size:.88rem}.work-location summary{width:32px;min-height:32px;line-height:32px;list-style-position:inside;text-align:center}.work-location p{margin:10px 0}.location-link{display:inline-flex;text-decoration:none}.work-heading{display:flex;align-items:baseline;gap:10px}.locations{display:inline-flex;gap:5px;flex-shrink:0}.location-icon{display:inline-flex;vertical-align:middle;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid var(--line);border-radius:5px;background:var(--panel)}.location-icon svg{width:18px;height:18px}.calibre{color:var(--link)}.zotero{color:#a53043}.location-legend{display:flex;align-items:center;flex-wrap:wrap;gap:6px 14px}.location-legend>span:not(:last-child){white-space:nowrap}.works{list-style:none;padding:0}.works li{padding:16px 0;border-bottom:1px solid var(--line)}code{font-size:.85rem;overflow-wrap:anywhere}.pagination{justify-content:space-between}.check{border-top:1px solid var(--line);padding:12px 0}summary{cursor:pointer}.fields{margin:12px 0}.fields>div{display:grid;grid-template-columns:minmax(140px,1fr) minmax(0,3fr);gap:16px;padding:8px 0;border-bottom:1px solid var(--line)}dt{font-weight:600}dd{margin:0;min-width:0}dd ul{margin:0;padding-left:20px}h3{font-size:1rem}.table-wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;text-align:left}th,td{vertical-align:top;padding:12px 14px 12px 0;border-bottom:1px solid var(--line)}th{font-weight:600}.state{white-space:nowrap}.empty{padding:20px 0}.skip{position:absolute;top:-100px}.skip:focus{top:8px;background:var(--panel);padding:8px}
+@media(prefers-color-scheme:dark){:root{--bg:#151c24;--panel:#1d2732;--text:#e1e8ef;--line:#394858;--mut:#adbbc9;--link:#8dc8fa;--up:#8ed4a6;--warn:#e3c277;--bad:#ffa5a5}button{color:#151c24}.zotero{color:#ffa4b3}}
 @media(max-width:650px){body{padding:20px 12px}section{padding:16px}.stats{grid-template-columns:repeat(2,1fr)}.state{white-space:normal}th,td{padding-right:10px}.search button{width:100%}}
 </style></head><body><a class="skip" href="#main">Skip to content</a>
 <header><h1>Holdings${admin ? " admin" : ""}</h1><p>${admin ? "Library maintenance, data freshness, and authoring services." : "Your library across Zotero, Calibre, and the quote store."}</p>

@@ -1,5 +1,5 @@
 import { type DB, getMeta, setMeta } from "./db.js";
-import type { ZoteroClient } from "./zotero.js";
+import { zoteroWebBase, type ApiItem, type ZoteroClient } from "./zotero.js";
 
 /**
  * Brings the zotero_items mirror of one library up to date: everything changed since the last sync (all
@@ -18,6 +18,16 @@ export async function syncLibrary(db: DB, client: ZoteroClient, library: string,
   if (items.length) log("\n");
   const logged = getMeta(db, `zotero_deletions:${library}`) !== undefined;
   const all = logged || since === 0 ? deleted : ((await client.get("deleted", { since: 0 })).body as { items?: string[] }).items ?? [];
+  let webBase = items.map((item) => zoteroWebBase(item, library)).find((base) => base !== null);
+  // Backfill existing mirrors with one representative item, without re-downloading the library.
+  if (!webBase && !getMeta(db, `zotero_web_base:${library}`)) {
+    try {
+      const { body } = await client.get("items", { format: "json", limit: 1 });
+      webBase = (body as ApiItem[]).map((item) => zoteroWebBase(item, library)).find((base) => base !== null);
+    } catch (error) {
+      log(`Could not discover the web-library address for ${library}: ${(error as Error).message}\n`);
+    }
+  }
   const upsert = db.prepare(`
     INSERT INTO zotero_items (library, key, version, item_type, parent_key, deleted, data) VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT (library, key) DO UPDATE SET version = excluded.version, item_type = excluded.item_type,
@@ -37,6 +47,7 @@ export async function syncLibrary(db: DB, client: ZoteroClient, library: string,
       remove.run(library, key);
       record.run(library, key, version);
     }
+    if (webBase) setMeta(db, `zotero_web_base:${library}`, webBase);
     setMeta(db, `zotero_deletions:${library}`, "1");
     setMeta(db, `zotero_version:${library}`, String(version));
   })();

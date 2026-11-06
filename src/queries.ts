@@ -76,6 +76,13 @@ function describe(db: DB, row: WorkRow, full = false) {
     holdings.quotes = { quotes: sum("quotes"), notes: sum("notes"), verified: sum("verified"), tools: TOOLS.quotes, work: row.key };
   }
 
+  if (row.kind === "zotero") {
+    const split = row.key.lastIndexOf("/");
+    const count = (db.prepare("SELECT COUNT(*) AS n FROM zotero_items WHERE library = ? AND parent_key = ? AND item_type = 'note' AND deleted = 0")
+      .get(row.key.slice(7, split), row.key.slice(split + 1)) as { n: number }).n;
+    if (count) holdings.notes = { zotero_notes: count };
+  }
+
   const blockers = parse<string[]>(row.blockers);
   const candidates = parse<string[]>(row.candidates);
   return {
@@ -135,7 +142,7 @@ const HAS_SQL: Record<Has, string> = {
   text: "EXISTS (SELECT 1 FROM holdings h WHERE h.work_key = w.key AND h.form = 'text')",
   file: "EXISTS (SELECT 1 FROM holdings h WHERE h.work_key = w.key AND h.form = 'file')",
   quotes: "EXISTS (SELECT 1 FROM holdings h WHERE h.work_key = w.key AND h.form = 'quotes' AND json_extract(h.detail, '$.quotes') > 0)",
-  notes: "EXISTS (SELECT 1 FROM holdings h WHERE h.work_key = w.key AND h.form = 'quotes' AND json_extract(h.detail, '$.notes') > 0)",
+  notes: "(EXISTS (SELECT 1 FROM holdings h WHERE h.work_key = w.key AND h.form = 'quotes' AND json_extract(h.detail, '$.notes') > 0) OR EXISTS (SELECT 1 FROM zotero_items n WHERE n.library = substr(w.key, 8, length(w.key) - 16) AND n.parent_key = substr(w.key, -8) AND n.item_type = 'note' AND n.deleted = 0 AND w.kind = 'zotero'))",
 };
 
 export function findWork(db: DB, args: FindArgs) {
