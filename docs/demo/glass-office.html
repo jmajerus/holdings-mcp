@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="John Majerus" />
+  <title>The Glass Office: Surveillance, Measurement, and the Person Behind the Metric</title>
+  <style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+
+div.csl-bib-body { }
+div.csl-entry {
+clear: both;
+margin-bottom: 0em;
+}
+.hanging-indent div.csl-entry {
+margin-left:2em;
+text-indent:-2em;
+}
+div.csl-left-margin {
+min-width:2em;
+float:left;
+}
+div.csl-right-inline {
+margin-left:2em;
+padding-left:1em;
+}
+div.csl-indent {
+margin-left: 2em;
+} </style>
+  <style type="text/css">
+@namespace epub "http://www.idpf.org/2007/ops";
+
+[epub|type~="part"] {
+text-align: center;
+margin-top: 2.5em;
+margin-bottom: 2em;
+}
+[epub|type~="part"] h1,
+[epub|type~="part"] h2 {
+margin-top: 0;
+margin-bottom: 0.4em;
+font-size: 1.6em;
+}
+[epub|type~="part"] h3 {
+font-size: 1.1em;
+font-weight: normal;
+color: #555;
+margin-top: 0.2em;
+}
+
+h1[epub|type~="chapter"],
+h2[epub|type~="chapter"] {
+font-size: 1.4em;
+margin-top: 2em;
+margin-bottom: 0.6em;
+text-align: left;
+}
+h2[epub|type~="subchapter"],
+h3[epub|type~="subchapter"] {
+font-size: 1.2em;
+margin-top: 1.4em;
+margin-bottom: 0.5em;
+}
+
+[epub|type~="epigraph"] {
+margin: 1.8em 10%;
+font-style: italic;
+text-align: right;
+}
+[epub|type~="epigraph"] p {
+margin-bottom: 0.6em;
+}
+[epub|type~="epigraph"] .attribution {
+font-style: normal;
+font-size: 0.9em;
+color: #555;
+}
+[epub|type~="epigraph-inline"] {
+margin: 1.2em 12%;
+font-style: italic;
+text-align: right;
+opacity: 0.9;
+}
+[epub|type~="epigraph-inline"] p {
+margin-bottom: 0.4em;
+}
+
+[epub|type~="aside"] {
+border: 1.5px solid rgba(0, 0, 0, 0.14);
+border-left-width: 4px;
+border-radius: 10px;
+background-color: rgba(0, 0, 0, 0.022);
+padding: 1.1em 1.2em;
+margin: 1.2em 0;
+font-size: 0.95em;
+line-height: 1.45;
+page-break-before: auto !important;
+break-before: auto !important;
+page-break-after: auto !important;
+break-after: auto !important;
+page-break-inside: auto;
+break-inside: auto;
+position: relative;
+}
+[epub|type~="aside"]::after {
+content: "";
+position: absolute;
+inset: 0.5em;
+border: 1px dashed rgba(0, 0, 0, 0.05);
+border-radius: 8px;
+pointer-events: none;
+}
+[epub|type~="aside"] + [epub|type~="aside"] {
+margin-top: 1.8em;
+}
+[epub|type~="aside"] h3 {
+margin-top: 0;
+margin-bottom: 0.3em;
+font-size: 0.95em;
+font-weight: 600;
+letter-spacing: 0.03em;
+}
+[epub|type~="aside"] .sidebar-badge,
+[epub|type~="sidebar-inline"] .sidebar-badge {
+display: inline-flex;
+align-items: center;
+gap: 0.35em;
+font-size: 0.72em;
+text-transform: uppercase;
+letter-spacing: 0.08em;
+font-weight: 600;
+border-radius: 999px;
+padding: 0.16em 0.62em 0.12em 0.52em;
+background-color: rgba(0, 0, 0, 0.065);
+color: #333;
+margin: 0;
+}
+
+.sidebar-badge-row,
+.box-badge-row {
+margin: 0 0 0.25em 0;
+line-height: 1.2;
+}
+.sidebar-badge-row + h2,
+.sidebar-badge-row + h3,
+.sidebar-badge-row + p,
+.box-badge-row + h2,
+.box-badge-row + h3,
+.box-badge-row + p {
+margin-top: 0.15em;
+}
+
+.box-badge {
+display: inline-flex;
+align-items: center;
+gap: 0.35em;
+font-size: 0.72em;
+text-transform: uppercase;
+letter-spacing: 0.08em;
+font-weight: 600;
+border-radius: 999px;
+padding: 0.16em 0.62em 0.12em 0.52em;
+background-color: rgba(0, 0, 0, 0.08);
+color: #333;
+margin: 0;
+}
+.box-badge__label {
+font-family: "Source Sans Pro", "Helvetica Neue", Arial, sans-serif;
+letter-spacing: 0.08em;
+}
+.sidebar-badge__glyph {
+font-size: 1em;
+}
+.sidebar-badge__label {
+font-family: "Source Sans Pro", "Helvetica Neue", Arial, sans-serif;
+letter-spacing: 0.08em;
+}
+[epub|type~="sidebar-inline"] .sidebar-inline-glyph {
+font-size: 0.95em;
+margin-right: 0.35em;
+display: inline-block;
+}
+[epub|type~="sidebar-inline"] .sidebar-inline-glyph--block {
+display: inline-flex;
+margin-right: 0;
+margin-bottom: 0.35em;
+}
+[epub|type~="sidebar-inline"] {
+border-left: 3px solid #b3b3b3;
+background-color: rgba(0, 0, 0, 0.012);
+padding: 0.45em 0.9em;
+margin: 0.8em 0;
+font-size: 0.95em;
+line-height: 1.4;
+}
+[epub|type~="callout"] {
+border-left: 2px solid #bbb;
+background-color: rgba(0, 0, 0, 0.02);
+padding: 0.6em 0.9em;
+margin: 1em 0;
+font-size: 0.95em;
+line-height: 1.4;
+font-style: italic;
+}
+
+[epub|type~="note"] {
+--note-border-color: #e6c35a;
+--note-background-color: #fff9ed;
+--note-marker-color: #8a5a00;
+--note-marker-bg: rgba(230, 195, 90, 0.18);
+border-left: 3px solid var(--note-border-color, #e6c35a);
+background-color: var(--note-background-color, #fff9ed);
+padding: 0.55em 1em 0.85em;
+margin: 1.1em 0;
+font-size: 0.95em;
+line-height: 1.4;
+}
+
+[epub|type~="note"] > :first-child {
+margin-top: 0;
+}
+[epub|type~="note"] > h2:first-child,
+[epub|type~="note"] > h3:first-child,
+[epub|type~="note"] > h4:first-child,
+[epub|type~="note"] > h5:first-child,
+[epub|type~="note"] > h6:first-child {
+margin-top: 0.15em;
+}
+[epub|type~="note"].warning {
+--note-border-color: #c05621;
+--note-background-color: #fff1e6;
+--note-marker-color: #8c2f00;
+--note-marker-bg: rgba(192, 86, 33, 0.18);
+}
+[epub|type~="note"].contrast {
+--note-border-color: #7e3af2;
+--note-background-color: #f4ebff;
+--note-marker-color: #4c1d95;
+--note-marker-bg: rgba(126, 58, 242, 0.16);
+}
+[epub|type~="note"].transition {
+--note-border-color: #2563eb;
+--note-background-color: #eaf2ff;
+--note-marker-color: #1e3a8a;
+--note-marker-bg: rgba(37, 99, 235, 0.16);
+}
+[epub|type~="note"].navigation {
+--note-border-color: #0f6b75;
+--note-background-color: #e6f6f7;
+--note-marker-color: #084a52;
+--note-marker-bg: rgba(15, 107, 117, 0.16);
+}
+[epub|type~="note"].bridge {
+--note-border-color: #6f58b9;
+--note-background-color: #f4f0ff;
+--note-marker-color: #4a3792;
+--note-marker-bg: rgba(111, 88, 185, 0.17);
+}
+[epub|type~="note"].usage {
+--note-border-color: #3b6ea8;
+--note-background-color: #eef4fa;
+--note-marker-color: #1f3f66;
+--note-marker-bg: rgba(59, 110, 168, 0.16);
+}
+[epub|type~="note"].integration {
+--note-border-color: #0f766e;
+--note-background-color: #e8f7f6;
+--note-marker-color: #0b4f4a;
+--note-marker-bg: rgba(15, 118, 110, 0.16);
+}
+[epub|type~="note"].responsibility {
+--note-border-color: #b45309;
+--note-background-color: #fff4e6;
+--note-marker-color: #7c2d12;
+--note-marker-bg: rgba(180, 83, 9, 0.16);
+}
+[epub|type~="note"].reflexive {
+--note-border-color: #64748b;
+--note-background-color: #eff2f7;
+--note-marker-color: #334155;
+--note-marker-bg: rgba(100, 116, 139, 0.16);
+}
+[epub|type~="note"].synthesis {
+--note-border-color: #2f855a;
+--note-background-color: #e7f7ef;
+--note-marker-color: #1b5e3c;
+--note-marker-bg: rgba(47, 133, 90, 0.16);
+}
+[epub|type~="note"].disclosure {
+--note-border-color: #a855f7;
+--note-background-color: #f5edff;
+--note-marker-color: #6b21a8;
+--note-marker-bg: rgba(168, 85, 247, 0.16);
+}
+[epub|type~="note"].misuse {
+--note-border-color: #b42318;
+--note-background-color: #ffecea;
+--note-marker-color: #7a120c;
+--note-marker-bg: rgba(180, 35, 24, 0.18);
+}
+[epub|type~="note"].diagnostic {
+--note-border-color: #2454c6;
+--note-background-color: #e7f0ff;
+--note-marker-color: #17337a;
+--note-marker-bg: rgba(36, 84, 198, 0.18);
+}
+[epub|type~="note"].closing {
+--note-border-color: #475467;
+--note-background-color: #f5f7fb;
+--note-marker-color: #2f3949;
+--note-marker-bg: rgba(71, 84, 103, 0.16);
+}
+[epub|type~="note"].methodology {
+--note-border-color: #5046e5;
+--note-background-color: #eef0ff;
+--note-marker-color: #312e81;
+--note-marker-bg: rgba(80, 70, 229, 0.16);
+}
+[epub|type~="note"].context {
+--note-border-color: #4a5568;
+--note-background-color: #f0f4f8;
+--note-marker-color: #2d3748;
+--note-marker-bg: rgba(74, 85, 104, 0.16);
+}
+[epub|type~="note"].scope {
+--note-border-color: #92400e;
+--note-background-color: #fef3e2;
+--note-marker-color: #78350f;
+--note-marker-bg: rgba(146, 64, 14, 0.16);
+}
+[epub|type~="note"].checklist {
+--note-border-color: #0d9488;
+--note-background-color: #ccfbf1;
+--note-marker-color: #115e59;
+--note-marker-bg: rgba(13, 148, 136, 0.16);
+}
+[epub|type~="note"].prelude {
+--note-border-color: #9ca3af;
+--note-background-color: #f9fafb;
+--note-marker-color: #4b5563;
+--note-marker-bg: rgba(156, 163, 175, 0.16);
+}
+[epub|type~="note"].orientation {
+--note-border-color: #0f6b75;
+--note-background-color: #e6f6f7;
+--note-marker-color: #084a52;
+--note-marker-bg: rgba(15, 107, 117, 0.16);
+}
+[epub|type~="note"].ai {
+--note-border-color: #2563eb;
+--note-background-color: #eef6ff;
+--note-marker-color: #1d4ed8;
+--note-marker-bg: rgba(37, 99, 235, 0.16);
+}
+[epub|type~="note"].idea,
+[epub|type~="note"].insight {
+--note-border-color: #d9a300;
+--note-background-color: #fff6d1;
+}
+[epub|type~="note"].breadcrumb {
+--note-border-color: #1d5671;
+--note-background-color: #eef5fb;
+--note-marker-color: #153a4a;
+--note-marker-bg: rgba(29, 86, 113, 0.16);
+}
+[epub|type~="example"] {
+border-left: 3px solid #2f80ed;
+background-color: #e8f1ff;
+padding: 0.75em 1em;
+margin: 1.1em 0;
+font-size: 0.95em;
+line-height: 1.4;
+}
+[epub|type~="definition"] {
+border-left: 3px solid #1b7f4d;
+background-color: #e6f7ef;
+padding: 0.75em 1em;
+margin: 1.1em 0;
+font-size: 0.95em;
+line-height: 1.4;
+font-weight: 500;
+}
+
+[epub|type~="frontmatter"] h1,
+[epub|type~="frontmatter"] h2 {
+text-align: center;
+}
+[epub|type~="backmatter"] h1,
+[epub|type~="backmatter"] h2 {
+text-align: left;
+}
+
+h1[epub|type~="appendix"],
+h2[epub|type~="appendix"] {
+font-size: 1.3em;
+margin-top: 2em;
+margin-bottom: 0.6em;
+text-align: left;
+text-transform: uppercase;
+letter-spacing: 0.05em;
+}
+
+.epigraph {
+margin: 2em 1em;
+padding-left: 1.5em;
+font-style: italic;
+font-size: 0.95em;
+border-left: 3px solid #999;
+}
+.epigraph p {
+margin: 0.6em 0;
+}
+
+img {
+display: block;
+margin: 1em auto;
+max-width: 100%;
+height: auto;
+}
+hr {
+border: none;
+border-top: 1px solid #ccc;
+margin: 1.5em 0;
+}
+hr.catalog-divider {
+border: none;
+border-top: 1px solid #999;
+margin: 1.5em 0;
+width: 100%;
+}
+
+.table table {
+width: 100%;
+border-collapse: collapse;
+font-size: 0.95em;
+}
+.table th,
+.table td {
+padding: 0.52em 0.68em;
+vertical-align: top;
+}
+.table-compact table {
+font-size: 0.88em;
+}
+.table-compact th,
+.table-compact td {
+padding: 0.3em 0.45em;
+}
+.table-striped table tbody tr:nth-child(even) {
+background: rgba(0, 0, 0, 0.05);
+}
+.table-bordered table,
+.table-bordered th,
+.table-bordered td {
+border: 1px solid rgba(0, 0, 0, 0.2);
+}
+.table-bordered table {
+border-collapse: collapse;
+}
+
+blockquote {
+margin: 1.2em 0;
+padding: 0.85em 1.2em;
+border-left: 4px solid #d0d7de;
+background-color: rgba(0, 0, 0, 0.03);
+color: #222;
+}
+[epub|type~="aside"] blockquote,
+[epub|type~="sidebar-inline"] blockquote {
+border-left-color: rgba(0, 0, 0, 0.18);
+background-color: rgba(0, 0, 0, 0.045);
+}
+blockquote > :first-child {
+margin-top: 0;
+}
+blockquote > :last-child {
+margin-bottom: 0;
+}
+
+.footnote-ref {
+font-size: 0.8em;
+vertical-align: super;
+text-decoration: none;
+margin-left: 0.1em;
+}
+.footnotes,
+.doc-endnotes {
+border-top: 1px solid #d0d7de;
+margin-top: 1.8em;
+padding-top: 1em;
+font-size: 0.9em;
+line-height: 1.4;
+}
+.footnotes ol,
+.doc-endnotes ol {
+margin: 0.6em 0 0 1.4em;
+padding: 0;
+}
+.footnotes li,
+.doc-endnotes li {
+margin-bottom: 0.7em;
+}
+.footnote-back {
+font-size: 0.75em;
+margin-right: 0.35em;
+text-decoration: none;
+}</style>
+  <style type="text/css">@namespace epub "http://www.idpf.org/2007/ops";html, body {margin: 0;padding: 0;}body {font-family: "Georgia", "Times New Roman", serif;line-height: 1.4;font-size: 1rem;padding: 0.8em 0.9em;}p {margin: 0 0 0.8em 0;}h1, h2, h3, h4 {font-family: "Georgia", "Times New Roman", serif;font-weight: bold;line-height: 1.2;margin: 1.2em 0 0.4em 0;}.section-heading-glyph {display: inline-block;width: 1.4ch;margin-left: -1.4ch;margin-right: 0.4ch;text-align: right;opacity: 0.85;}.catalog-collection-heading .section-heading-glyph,.section-heading-glyph.collection-heading-glyph {width: 2.05ch;margin-left: -2.05ch;margin-right: 0.55ch;font-size: 1.1em;}a {text-decoration: none;}a:link,a:visited {color: #0044aa;}a:hover,a:active {text-decoration: underline;}[epub|type~="part"] {break-before: page;page-break-before: always; text-align: center;margin-top: 40%;margin-bottom: 40%;}[epub|type~="part"] h1 {font-size: 1.8em;margin-bottom: 0.4em;}[epub|type~="part"] h2 {font-size: 1.4em;margin-bottom: 0.3em;}[epub|type~="part"] h3 {font-size: 1.1em;font-weight: normal;color: #555;}h1[epub|type~="chapter"] {break-before: page;page-break-before: always;font-size: 1.6em;margin-top: 25%;margin-bottom: 0.6em;text-align: left;}h1[epub|type~="chapter"] span.chapter-number {text-transform: uppercase;letter-spacing: 0.08em;font-size: 0.9em;}h2[epub|type~="subchapter"] {font-size: 1.2em;margin-top: 2em;margin-bottom: 0.5em;}[epub|type~="epigraph"] {margin: 2em 10%;font-style: italic;text-align: right;}[epub|type~="epigraph"] p {margin-bottom: 0.5em;}[epub|type~="epigraph"] .attribution {font-style: normal;font-size: 0.9em;color: #555;}[epub|type~="aside"] {border-left: 4px solid #888;background-color: rgba(0, 0, 0, 0.04);padding: 0.8em 1em;margin: 1.5em 0;}[epub|type~="aside"] h2,[epub|type~="aside"] h3 {margin-top: 0;font-size: 1em;text-transform: uppercase;letter-spacing: 0.06em;}[epub|type~="bridge"] {border-left: 4px solid #6f58b9;border-right: 4px solid #6f58b9;background-color: #f6f2ff;padding: 1.3em 1.4em;margin: 2.2em 0;border-radius: 6px;}[epub|type~="bridge"] h2,[epub|type~="bridge"] h3 {margin-top: 0;text-transform: uppercase;letter-spacing: 0.08em;font-size: 1.05em;}[epub|type~="bridge"] p {margin-bottom: 0.85em;}[epub|type~="bridge"] p:last-child {margin-bottom: 0;}[epub|type~="note"],[epub|type~="example"],[epub|type~="definition"] {padding: 0.9em 1em;margin: 1.4em 0;border-radius: 0 6px 6px 0;}[epub|type~="note"] {--note-border-color: #e6c35a;--note-background-color: #fff9ed;--note-marker-color: #8a5a00;--note-marker-bg: rgba(230, 195, 90, 0.18);border-left: 4px solid var(--note-border-color, #e6c35a);background-color: var(--note-background-color, #fff9ed);padding-top: 0.55em;padding-bottom: 0.85em;}[epub|type~="note"] > :first-child {margin-top: 0;}[epub|type~="note"] > h2:first-child,[epub|type~="note"] > h3:first-child,[epub|type~="note"] > h4:first-child,[epub|type~="note"] > h5:first-child,[epub|type~="note"] > h6:first-child {margin-top: 0.15em;}[epub|type~="note"].idea,[epub|type~="note"].insight {--note-border-color: #d9a300;--note-background-color: #fff6d5;}[epub|type~="note"].warning {--note-border-color: #c05621;--note-background-color: #fff1e6;--note-marker-color: #8c2f00;--note-marker-bg: rgba(192, 86, 33, 0.18);}[epub|type~="note"].contrast {--note-border-color: #7e3af2;--note-background-color: #f4ebff;--note-marker-color: #4c1d95;--note-marker-bg: rgba(126, 58, 242, 0.16);}[epub|type~="note"].transition {--note-border-color: #2563eb;--note-background-color: #eaf2ff;--note-marker-color: #1e3a8a;--note-marker-bg: rgba(37, 99, 235, 0.16);}[epub|type~="note"].navigation {--note-border-color: #0f6b75;--note-background-color: #e6f6f7;--note-marker-color: #084a52;--note-marker-bg: rgba(15, 107, 117, 0.16);}[epub|type~="note"].bridge {--note-border-color: #6f58b9;--note-background-color: #f4f0ff;--note-marker-color: #4a3792;--note-marker-bg: rgba(111, 88, 185, 0.17);}[epub|type~="note"].usage {--note-border-color: #3b6ea8;--note-background-color: #eef4fa;--note-marker-color: #1f3f66;--note-marker-bg: rgba(59, 110, 168, 0.16);}[epub|type~="note"].integration {--note-border-color: #0f766e;--note-background-color: #e8f7f6;--note-marker-color: #0b4f4a;--note-marker-bg: rgba(15, 118, 110, 0.16);}[epub|type~="note"].responsibility {--note-border-color: #b45309;--note-background-color: #fff4e6;--note-marker-color: #7c2d12;--note-marker-bg: rgba(180, 83, 9, 0.16);}[epub|type~="note"].reflexive {--note-border-color: #64748b;--note-background-color: #eff2f7;--note-marker-color: #334155;--note-marker-bg: rgba(100, 116, 139, 0.16);}[epub|type~="note"].synthesis {--note-border-color: #2f855a;--note-background-color: #e7f7ef;--note-marker-color: #1b5e3c;--note-marker-bg: rgba(47, 133, 90, 0.16);}[epub|type~="note"].disclosure {--note-border-color: #a855f7;--note-background-color: #f5edff;--note-marker-color: #6b21a8;--note-marker-bg: rgba(168, 85, 247, 0.16);}[epub|type~="note"].misuse {--note-border-color: #b42318;--note-background-color: #ffecea;--note-marker-color: #7a120c;--note-marker-bg: rgba(180, 35, 24, 0.18);}[epub|type~="note"].diagnostic {--note-border-color: #2454c6;--note-background-color: #e7f0ff;--note-marker-color: #17337a;--note-marker-bg: rgba(36, 84, 198, 0.18);}[epub|type~="note"].closing {--note-border-color: #475467;--note-background-color: #f5f7fb;--note-marker-color: #2f3949;--note-marker-bg: rgba(71, 84, 103, 0.16);}[epub|type~="note"].breadcrumb {--note-border-color: #1d5671;--note-background-color: #eef5fb;--note-marker-color: #153a4a;--note-marker-bg: rgba(29, 86, 113, 0.16);}[epub|type~="note"].methodology {--note-border-color: #5046e5;--note-background-color: #eef0ff;--note-marker-color: #312e81;--note-marker-bg: rgba(80, 70, 229, 0.16);}[epub|type~="note"].context {--note-border-color: #4a5568;--note-background-color: #f0f4f8;--note-marker-color: #2d3748;--note-marker-bg: rgba(74, 85, 104, 0.16);}[epub|type~="note"].scope {--note-border-color: #92400e;--note-background-color: #fef3e2;--note-marker-color: #78350f;--note-marker-bg: rgba(146, 64, 14, 0.16);}[epub|type~="note"].checklist {--note-border-color: #0d9488;--note-background-color: #ccfbf1;--note-marker-color: #115e59;--note-marker-bg: rgba(13, 148, 136, 0.16);}[epub|type~="note"].prelude {--note-border-color: #9ca3af;--note-background-color: #f9fafb;--note-marker-color: #4b5563;--note-marker-bg: rgba(156, 163, 175, 0.16);}[epub|type~="note"].orientation {--note-border-color: #0f6b75;--note-background-color: #e6f6f7;--note-marker-color: #084a52;--note-marker-bg: rgba(15, 107, 117, 0.16);}[epub|type~="note"].ai {--note-border-color: #2563eb;--note-background-color: #eef6ff;--note-marker-color: #1d4ed8;--note-marker-bg: rgba(37, 99, 235, 0.16);}[epub|type~="example"] {border-left: 4px solid #2f80ed;background-color: #e8f1ff;}[epub|type~="definition"] {border-left: 4px solid #1b7f4d;background-color: #e6f7ef;}[epub|type~="note"]::before,[epub|type~="example"]::before,[epub|type~="definition"]::before {display: block;font-size: 0.85em;letter-spacing: 0.08em;text-transform: uppercase;font-weight: 600;color: #5f4100;margin-bottom: 0.2em;}[epub|type~="note"]::before {content: "✦";display: inline-flex;align-items: center;justify-content: center;width: 1.7em;height: 1.7em;border-radius: 999px;background-color: var(--glyph-marker-background,var(--note-marker-bg, rgba(230, 195, 90, 0.18)));font-size: 1.05em;line-height: 1;font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;color: var(--note-marker-color, #8a5a00);margin-bottom: 0.22em;letter-spacing: 0;text-transform: none;font-weight: 500;}[epub|type~="example"]::before {content: "Example";color: #1a4d8d;}[epub|type~="definition"]::before {content: "Definition";color: #125436;}[epub|type~="note"].idea::before {content: "💡";display: inline-flex;width: auto;height: auto;background: none;margin-bottom: 0;margin-right: 0.4em;}[epub|type~="note"].insight::before {content: "⁂";display: inline-flex;align-items: center;justify-content: center;width: auto;height: auto;background: none;margin: 0 0.4em 0 0;font-size: 1.05em;color: #7a4ac4;vertical-align: baseline;}[epub|type~="note"].insight.major::before {display: inline-flex;align-items: center;justify-content: center;width: 2.05em;height: 2.05em;border-radius: 999px;background-color: var(--glyph-marker-background, rgba(122, 74, 196, 0.15));margin: 0 0 0.2em 0;font-weight: 600;}[epub|type~="insight"],[epub|type~="insight"] [epub|type] {border-left: 3px solid #6a3fb3;background-color: #f7f1ff;padding: 0.8em 1em;margin: 1.3em 0;border-radius: 6px;}[epub|type~="insight"]::before {content: "⁂";display: inline-flex;align-items: center;justify-content: center;margin: 0 0.45em 0 0;font-size: 1.05em;color: #6a3fb3;vertical-align: baseline;}[epub|type~="insight"] h2,[epub|type~="insight"] h3 {margin-top: 0.4em;}[epub|type~="insight"][epub|type~="major"] {border-left-width: 4px;background-color: #efe3ff;}[epub|type~="insight"][epub|type~="major"]::before {content: "⁂";display: inline-flex;align-items: center;justify-content: center;width: 2.05em;height: 2.05em;border-radius: 999px;background-color: var(--glyph-marker-background, rgba(106, 63, 179, 0.15));font-weight: 600;margin: 0 0 0.4em 0;}[epub|type~="note"].breadcrumb::before {content: "➤";}[epub|type~="note"].contrast::before {content: "⇆";}[epub|type~="note"].transition::before {content: "⇥";}[epub|type~="note"].navigation::before {content: "⇢";}[epub|type~="note"].bridge::before {content: "⟷";}[epub|type~="note"].usage::before {content: "⚙";}[epub|type~="note"].integration::before {content: "∞";}[epub|type~="note"].responsibility::before {content: "⚖";}[epub|type~="note"].reflexive::before {content: "⟲";}[epub|type~="note"].synthesis::before {content: "⊕";}[epub|type~="note"].disclosure::before {content: "◊";}[epub|type~="note"].misuse::before {content: "✕";}[epub|type~="note"].diagnostic::before {content: "🔍";}[epub|type~="note"].closing::before {content: "∎";}[epub|type~="note"].warning::before {content: "⚠️";}[epub|type~="note"].methodology::before {content: "⊢";}[epub|type~="note"].context::before {content: "◉";}[epub|type~="note"].scope::before {content: "◎";}[epub|type~="note"].checklist::before {content: "☐";}[epub|type~="note"].prelude::before {content: "◈";}[epub|type~="note"].orientation::before {content: "⇢";}[epub|type~="note"].ai::before {content: "◇";}[epub|type~="frontmatter"] h1,[epub|type~="frontmatter"] h2 {text-align: center;}[epub|type~="backmatter"] h1,[epub|type~="backmatter"] h2 {text-align: left;}h1[epub|type~="appendix"] {break-before: page;page-break-before: always;font-size: 1.4em;margin-top: 25%;margin-bottom: 0.6em;text-align: left;text-transform: uppercase;letter-spacing: 0.05em;}[epub|type~="appendix"] p {margin-bottom: 0.7em;}.page-break,.pagebreak {display: block;break-before: page !important;page-break-before: always !important;margin: 0;padding: 0;border: 0;height: 0;}img {display: block;margin: 1em auto;max-width: 100%;height: auto;}hr {border: none;border-top: 1px solid #ccc;margin: 1.5em 0;}hr.catalog-divider {border: none;border-top: 1px solid #999;margin: 1.5em 0;width: 100%;}</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">The Glass Office: Surveillance, Measurement, and the
+Person Behind the Metric</h1>
+<p class="subtitle">A Six-Server Authoring MCP Interoperability
+Demonstration</p>
+<p class="author">John Majerus</p>
+</header>
+<section id="the-glass-office-surveillance-measurement-and-the-person-behind-the-metric" class="article">
+<h1>The Glass Office: Surveillance, Measurement, and the Person Behind
+the Metric</h1>
+<h3 id="a-six-server-authoring-mcp-interoperability-demonstration-vmetaversion">A
+Six-Server Authoring MCP Interoperability Demonstration (v0.2.0)</h3>
+<!-- quote 845 human-work:panopticism -->
+<div class="epigraph" data-quote-id="845" data-work-key="quote:740" data-quote-locator="chap. 7" data-concepts="human-work:panopticism" data-concept-uris="urn:quote-mcp:concept:human-work:panopticism" data-concept-terms="https://vocabulary.majerus.us/api/schemes/human-work/slugs/panopticism" about="urn:quote-mcp:concept:human-work:panopticism" epub:type="epigraph" role="doc-epigraph" data-iasp-delivery="epigraph" data-iasp-concepts="urn:iasp:concept:epigraph" data-iasp-terms="https://vocabulary.majerus.us/api/schemes/iasp/slugs/epigraph" vocab="http://www.w3.org/2004/02/skos/core#" typeof="Concept" resource="urn:iasp:concept:epigraph">
+<p>The more strictly we are watched, the better we behave.</p>
+<p>— Jeremy Bentham, quoted in <span class="citation" data-cites="hendricks2018reality">Hendricks and Vestergaard (<a href="#ref-hendricks2018reality" role="doc-biblioref">2018, chap.
+7.2</a>)</span></p>
+</div>
+<div class="note prelude" epub:type="note" data-iasp-delivery="note" data-iasp-modifiers="prelude" data-iasp-concepts="urn:iasp:concept:note urn:iasp:concept:prelude" data-iasp-terms="https://vocabulary.majerus.us/api/schemes/iasp/slugs/note https://vocabulary.majerus.us/api/schemes/iasp/slugs/prelude" vocab="http://www.w3.org/2004/02/skos/core#" typeof="Concept" resource="urn:iasp:concept:prelude">
+<p>This essay is the second interoperability test of the authoring
+suite, on a new subject. It was assembled in one session across six MCP
+servers. Every block quotation below was either checked word for word
+against the book it comes from or, in one case, drawn from a
+transcription already filed with its page. The sidebar in Section 2
+records which server did what.</p>
+</div>
+<h2 id="the-gaze-that-shapes">1. The Gaze That Shapes</h2>
+<p>Bentham’s sentence sounds like an observation. It is really a design
+brief. The Panopticon was never meant to see people as they are; it was
+meant to make them into something else. Hendricks and Vestergaard state
+the mechanism plainly:</p>
+<!-- quote 844 human-work:panopticism human-work:control human-work:conformity -->
+<div class="iasp-quote" data-quote-id="844" data-work-key="quote:740" data-quote-locator="chap. 7" data-concepts="human-work:conformity human-work:control human-work:panopticism" data-concept-uris="urn:quote-mcp:concept:human-work:conformity urn:quote-mcp:concept:human-work:control urn:quote-mcp:concept:human-work:panopticism" data-concept-terms="https://vocabulary.majerus.us/api/schemes/human-work/slugs/conformity https://vocabulary.majerus.us/api/schemes/human-work/slugs/control https://vocabulary.majerus.us/api/schemes/human-work/slugs/panopticism" about="urn:quote-mcp:concept:human-work:conformity urn:quote-mcp:concept:human-work:control urn:quote-mcp:concept:human-work:panopticism" vocab="http://www.w3.org/2004/02/skos/core#">
+<blockquote>
+<p>Monitoring and registering combined with rewards and sanctions for
+wanted and unwanted behavior is an efficient tool of behavior
+modification. Whether the surveillance takes place in institutions as
+prisons, schools, hospitals, the workplace, or the army or is
+generalized to the whole society, it aims at the same result: the
+production of obedient subjects who conform to what is expected and
+wanted by the authorities—normalized and law- and norm-abiding citizens.
+<span class="citation" data-cites="hendricks2018reality">(<a href="#ref-hendricks2018reality" role="doc-biblioref">Hendricks and
+Vestergaard 2018, chap. 7.2</a>)</span></p>
+</blockquote>
+</div>
+<p>The workplace sits in the middle of that list, between the hospital
+and the army, and it is easy to read past it. Yet most adults spend more
+of their waking lives under an employer’s instruments than under any
+state’s. Keystroke counters, badge logs, screenshot sampling, “idle”
+timers, and productivity dashboards are not exotic. They are the
+ordinary furniture of the glass office.</p>
+<p>The vocabulary behind this essay already encodes the argument. In the
+<em>human side of work</em> concept scheme kept in terminology-mcp,
+<strong>panopticism</strong> has two broader concepts:
+<strong>control</strong> and <strong>objectification</strong>. Watching,
+in other words, is filed as a species of making people into things. And
+objectification, in turn, is linked as the <em>opposite</em> of
+<strong>humanness</strong>.</p>
+<div class="note insight" epub:type="note" data-iasp-delivery="note" data-iasp-modifiers="insight" data-iasp-concepts="urn:iasp:concept:note urn:iasp:concept:insight" data-iasp-terms="https://vocabulary.majerus.us/api/schemes/iasp/slugs/note https://vocabulary.majerus.us/api/schemes/iasp/slugs/insight" vocab="http://www.w3.org/2004/02/skos/core#" typeof="Concept" resource="urn:iasp:concept:insight" data-concepts="human-work:panopticism human-work:objectification" data-concept-uris="urn:quote-mcp:concept:human-work:panopticism urn:quote-mcp:concept:human-work:objectification" data-concept-terms="https://vocabulary.majerus.us/api/schemes/human-work/slugs/panopticism https://vocabulary.majerus.us/api/schemes/human-work/slugs/objectification" about="urn:quote-mcp:concept:human-work:panopticism urn:quote-mcp:concept:human-work:objectification">
+<p>Visibility is never symmetrical. Every monitoring system quietly
+decides who will be a subject, someone who looks and judges, and who
+will be an object, something looked at and sorted. The decision is made
+in the architecture long before anyone reads a report.</p>
+</div>
+<h2 id="the-examination-as-ceremony">2. The Examination as Ceremony</h2>
+<p>Foucault saw that the power of the gaze does not depend on anyone
+actually looking. It depends on the watched person’s knowledge that they
+<em>could</em> be seen at any moment:</p>
+<!-- quote 411 human-work:objectification -->
+<div class="iasp-quote" data-quote-id="411" data-citekey="foucault1977discipline" data-work-key="zotero:users/827407/Q4PD967B" data-quote-locator="p. 187" data-concepts="human-work:objectification" data-concept-uris="urn:quote-mcp:concept:human-work:objectification" data-concept-terms="https://vocabulary.majerus.us/api/schemes/human-work/slugs/objectification" about="urn:quote-mcp:concept:human-work:objectification" vocab="http://www.w3.org/2004/02/skos/core#">
+<blockquote>
+<p>It is the fact of being constantly seen, of being able always to be
+seen, that maintains the disciplined individual in his subjection. … The
+examination is, as it were, the ceremony of this objectification. <span class="citation" data-cites="foucault1977discipline">(<a href="#ref-foucault1977discipline" role="doc-biblioref">Foucault 1977,
+187</a>)</span></p>
+</blockquote>
+</div>
+<p>The annual review, the weekly scorecard, and the live leaderboard are
+examinations in exactly this sense. What is new is that the examiner is
+increasingly a machine with an objective of its own. Stuart Russell,
+writing about content-recommendation systems, describes what happens
+when an optimizer is pointed at people. The naive assumption is that the
+system learns what users like. It does something else:</p>
+<!-- quote 846 human-work:technology human-work:control -->
+<div class="iasp-quote" data-quote-id="846" data-work-key="quote:741" data-quote-locator="chap. 1" data-concepts="human-work:control human-work:technology" data-concept-uris="urn:quote-mcp:concept:human-work:control urn:quote-mcp:concept:human-work:technology" data-concept-terms="https://vocabulary.majerus.us/api/schemes/human-work/slugs/control https://vocabulary.majerus.us/api/schemes/human-work/slugs/technology" about="urn:quote-mcp:concept:human-work:control urn:quote-mcp:concept:human-work:technology" vocab="http://www.w3.org/2004/02/skos/core#">
+<blockquote>
+<p>The solution is to change the user’s preferences so that they become
+more predictable. A more predictable user can be fed items that they are
+likely to click on, thereby generating more revenue. <span class="citation" data-cites="russell2019human">(<a href="#ref-russell2019human" role="doc-biblioref">Russell 2019, chap.
+1</a>)</span></p>
+</blockquote>
+</div>
+<!-- quote 847 human-work:technology human-work:control -->
+<div class="iasp-quote" data-quote-id="847" data-work-key="quote:741" data-quote-locator="chap. 1" data-concepts="human-work:control human-work:technology" data-concept-uris="urn:quote-mcp:concept:human-work:control urn:quote-mcp:concept:human-work:technology" data-concept-terms="https://vocabulary.majerus.us/api/schemes/human-work/slugs/control https://vocabulary.majerus.us/api/schemes/human-work/slugs/technology" about="urn:quote-mcp:concept:human-work:control urn:quote-mcp:concept:human-work:technology" vocab="http://www.w3.org/2004/02/skos/core#">
+<blockquote>
+<p>Like any rational entity, the algorithm learns how to modify the
+state of its environment—in this case, the user’s mind—in order to
+maximize its own reward. <span class="citation" data-cites="russell2019human">(<a href="#ref-russell2019human" role="doc-biblioref">Russell 2019, chap. 1</a>)</span></p>
+</blockquote>
+</div>
+<p>Replace “user” with “worker” and “click” with “task completed,” and
+the sentence describes algorithmic management. A system rewarded for a
+measured number will, given enough freedom, reshape the people being
+measured until they produce that number reliably. The worker becomes the
+environment the optimizer modifies.</p>
+<div class="sidebar sidebar-block methodology" epub:type="aside" role="complementary" data-iasp-delivery="sidebar" data-iasp-modifiers="methodology" data-iasp-concepts="urn:iasp:concept:sidebar urn:iasp:concept:methodology" data-iasp-terms="https://vocabulary.majerus.us/api/schemes/iasp/slugs/sidebar https://vocabulary.majerus.us/api/schemes/iasp/slugs/methodology" vocab="http://www.w3.org/2004/02/skos/core#" typeof="Concept" resource="urn:iasp:concept:methodology">
+<div class="sidebar-badge-row">
+<span class="sidebar-badge"><span class="sidebar-badge__glyph">🗒</span>
+<span class="sidebar-badge__label">SIDEBAR</span></span>
+</div>
+<h2 id="how-six-mcp-servers-co-authored-this-section">How Six MCP
+Servers Co-Authored This Section</h2>
+<ol type="1">
+<li><strong>terminology-mcp</strong> supplied the concept graph:
+<em>panopticism</em> is narrower than both <em>control</em> and
+<em>objectification</em>; <em>objectification</em> is opposite
+<em>humanness</em>; <em>fear</em> is opposite <em>security</em>.</li>
+<li><strong>holdings-mcp</strong> answered “what do I have, and in what
+form?” It showed that the Foucault volume exists only as a Zotero record
+(its one attachment is a web snapshot, not the book) with transcribed
+quotes, while <em>Reality Lost</em>, <em>Human Compatible</em>, and
+<em>Facilitating Software Architecture</em> have searchable text in
+Calibre.</li>
+<li><strong>corpus-mcp</strong> found the passages by full-text search
+(<code>panopticon</code>, <code>click-through</code>,
+<code>Deming fear</code>), returned them in context with
+<code>read_book</code>, and produced CSL and BibTeX data with
+<code>cite_passage</code>.</li>
+<li><strong>quote-mcp</strong> saved five new quotations (844–848). Each
+was checked against the Calibre text and stored as <em>verified</em>,
+with the book’s exact punctuation. Quote 411 (Foucault) was already in
+the store as a grade-A transcription.</li>
+<li><strong>zotero-mcp</strong> exported BibTeX for the two works
+already filed in Zotero (<code>foucault1977discipline</code>,
+<code>russell2019human</code>).</li>
+<li><strong>IASP</strong> checked every block’s semantic class,
+validated the Markdown, resolved citations with Pandoc citeproc in the
+HTML build, and exported this page for Ghost.</li>
+</ol>
+</div>
+<div class="note contrast" epub:type="note" data-iasp-delivery="note" data-iasp-modifiers="contrast" data-iasp-concepts="urn:iasp:concept:note urn:iasp:concept:contrast" data-iasp-terms="https://vocabulary.majerus.us/api/schemes/iasp/slugs/note https://vocabulary.majerus.us/api/schemes/iasp/slugs/contrast" vocab="http://www.w3.org/2004/02/skos/core#" typeof="Concept" resource="urn:iasp:concept:contrast" data-concepts="human-work:panopticism human-work:learning" data-concept-uris="urn:quote-mcp:concept:human-work:panopticism urn:quote-mcp:concept:human-work:learning" data-concept-terms="https://vocabulary.majerus.us/api/schemes/human-work/slugs/panopticism https://vocabulary.majerus.us/api/schemes/human-work/slugs/learning" about="urn:quote-mcp:concept:human-work:panopticism urn:quote-mcp:concept:human-work:learning">
+<p><strong>Measurement as mirror vs. measurement as gaze.</strong> A
+mirror returns data to the people doing the work, so they can see the
+system they are part of and improve it. A gaze extracts data
+<em>about</em> those people, so others can rank, sort, and correct them.
+The same number can serve either purpose. What differs is who holds it
+and what it is for.</p>
+</div>
+<h2 id="drive-out-fear">3. Drive Out Fear</h2>
+<p>W. Edwards Deming, the statistician most responsible for teaching
+industry to measure <em>systems</em>, was also the fiercest critic of
+measuring <em>individuals</em>. Andrew Harmel-Law, drawing on Deming’s
+<em>Out of the Crisis</em>, singles out one of his fourteen points:</p>
+<!-- quote 848 human-work:fear human-work:security human-work:leadership -->
+<div class="iasp-quote" data-quote-id="848" data-work-key="quote:742" data-quote-locator="p. 422" data-concepts="human-work:fear human-work:leadership human-work:security" data-concept-uris="urn:quote-mcp:concept:human-work:fear urn:quote-mcp:concept:human-work:leadership urn:quote-mcp:concept:human-work:security" data-concept-terms="https://vocabulary.majerus.us/api/schemes/human-work/slugs/fear https://vocabulary.majerus.us/api/schemes/human-work/slugs/leadership https://vocabulary.majerus.us/api/schemes/human-work/slugs/security" about="urn:quote-mcp:concept:human-work:fear urn:quote-mcp:concept:human-work:leadership urn:quote-mcp:concept:human-work:security" vocab="http://www.w3.org/2004/02/skos/core#">
+<blockquote>
+<p>The second principle for your attention is “drive out fear”: “No-one
+can put in his best performance unless he feels secure…‘Secure’ means
+‘without fear, not afraid to express ideas, not afraid to ask
+questions.’” <span class="citation" data-cites="harmel-law2024facilitating">(<a href="#ref-harmel-law2024facilitating" role="doc-biblioref">Harmel-Law
+2024, 422</a>)</span></p>
+</blockquote>
+</div>
+<p>Here the argument closes on itself. In the concept graph,
+<strong>fear</strong> is the opposite of <strong>security</strong>, and
+Deming makes security the precondition of good work. Constant visibility
+produces fear, because anything seen can be held against you. So the
+surveilled workplace undercuts the very performance its instruments
+claim to measure. People stop asking questions, stop admitting mistakes,
+and start working for the metric rather than the purpose. The dashboard
+shows what the gaze has made them into, not who they are.</p>
+<div class="note reflexive" epub:type="note" data-iasp-delivery="note" data-iasp-modifiers="reflexive" data-iasp-concepts="urn:iasp:concept:note urn:iasp:concept:reflexive" data-iasp-terms="https://vocabulary.majerus.us/api/schemes/iasp/slugs/note https://vocabulary.majerus.us/api/schemes/iasp/slugs/reflexive" vocab="http://www.w3.org/2004/02/skos/core#" typeof="Concept" resource="urn:iasp:concept:reflexive">
+<p>The same test applies to this essay’s own toolchain. Every quotation
+the agent saved, and the book it was checked against, is recorded in the
+quote store’s history. That is surveillance too. The difference is its
+direction. The record exists so that the author can check the work and
+correct it, not so that a score can be assigned to the one who did it.
+That is the mirror, not the gaze, and it is the only kind of instrument
+an AI-assisted writing process should accept.</p>
+</div>
+<div class="note synthesis" epub:type="note" data-iasp-delivery="note" data-iasp-modifiers="synthesis" data-iasp-concepts="urn:iasp:concept:note urn:iasp:concept:synthesis" data-iasp-terms="https://vocabulary.majerus.us/api/schemes/iasp/slugs/note https://vocabulary.majerus.us/api/schemes/iasp/slugs/synthesis" vocab="http://www.w3.org/2004/02/skos/core#" typeof="Concept" resource="urn:iasp:concept:synthesis">
+<p>Bentham promised that being watched would make us better. Foucault
+showed that it makes us <em>visible as objects</em>. Russell shows that,
+once a machine does the watching, it makes us <em>predictable</em>. And
+Deming reminds us that good work needs people who feel secure enough to
+be unpredictable: to question, to try, and to fail in the open. A humane
+workplace measures the system and trusts the person. The glass office
+does the reverse.</p>
+</div>
+<h2 id="references">References</h2>
+</section>
+<div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" role="list">
+<div id="ref-foucault1977discipline" class="csl-entry" role="listitem">
+Foucault, M. 1977. <em>Discipline and Punish: <span>The</span> Birth of
+the Prison</em>. Pantheon Books.
+</div>
+<div id="ref-harmel-law2024facilitating" class="csl-entry" role="listitem">
+Harmel-Law, Andrew. 2024. <em>Facilitating Software Architecture</em>.
+O’Reilly Media.
+</div>
+<div id="ref-hendricks2018reality" class="csl-entry" role="listitem">
+Hendricks, Vincent F., and Mads Vestergaard. 2018. <em>Reality
+Lost</em>. Springer International Publishing.
+</div>
+<div id="ref-russell2019human" class="csl-entry" role="listitem">
+Russell, S. 2019. <em>Human Compatible: <span>Artificial</span>
+Intelligence and the Problem of Control</em>. Penguin Publishing Group.
+</div>
+</div>
+</body>
+</html>
