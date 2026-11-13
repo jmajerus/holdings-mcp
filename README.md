@@ -5,7 +5,8 @@ a Calibre book with or without text, a paper book with quotes in quote-mcp. Each
 other authoring service keys it (the Zotero item, its citekey) and says what can be done with it next: read
 its text, find its quotes and notes, cite it.
 
-It keeps a mirror of the Zotero libraries and polls two feeds: corpus-mcp's books and quote-mcp's quote
+It keeps a mirror of the Zotero libraries listed in `HOLDINGS_ZOTERO_LIBRARIES` (a library taken off the list is
+dropped from the mirror at the next refresh) and polls two feeds: corpus-mcp's books and quote-mcp's quote
 counts. It writes to none of them, and its MCP tools are read-only. [PLAN.md](PLAN.md) is the plan of record.
 
 corpus-mcp and quote-mcp read Zotero through it, so only holdings-mcp syncs with zotero.org (see

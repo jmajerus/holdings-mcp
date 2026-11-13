@@ -53,3 +53,28 @@ export async function syncLibrary(db: DB, client: ZoteroClient, library: string,
   })();
   return { changed: items.length, deleted: deleted.length, version };
 }
+
+/**
+ * Forgets every library the mirror holds that HOLDINGS_ZOTERO_LIBRARIES no longer lists: its items, its deletion
+ * log, its sync versions (so /zotero stops serving it), its feed row, and who read it. Without this a dropped
+ * library's items would stay works, frozen at their last sync. They come back in full if the library is listed again.
+ * Returns the libraries forgotten. With no libraries configured nothing is forgotten, so a missing setting can't empty the mirror.
+ */
+export function forgetUnlistedLibraries(db: DB, listed: string[]): string[] {
+  if (!listed.length) return [];
+  const held = new Set([
+    ...(db.prepare("SELECT DISTINCT library FROM zotero_items").pluck().all() as string[]),
+    ...(db.prepare("SELECT key FROM meta WHERE key LIKE 'zotero_version:%'").pluck().all() as string[]).map((k) => k.slice("zotero_version:".length)),
+  ]);
+  const dropped = [...held].filter((library) => !listed.includes(library)).sort();
+  db.transaction(() => {
+    for (const library of dropped) {
+      db.prepare("DELETE FROM zotero_items WHERE library = ?").run(library);
+      db.prepare("DELETE FROM zotero_deletions WHERE library = ?").run(library);
+      db.prepare("DELETE FROM zotero_readers WHERE library = ?").run(library);
+      db.prepare("DELETE FROM feeds WHERE name = ?").run(`zotero:${library}`);
+      for (const prefix of ["zotero_version", "zotero_deletions", "zotero_web_base"]) db.prepare("DELETE FROM meta WHERE key = ?").run(`${prefix}:${library}`);
+    }
+  })();
+  return dropped;
+}

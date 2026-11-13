@@ -1,7 +1,7 @@
 import { runChecks } from "./checks.js";
 import { type DB, now, setMeta } from "./db.js";
 import { FEEDS, feedUrl, pollFeed, recordZotero } from "./feeds.js";
-import { syncLibrary } from "./sync.js";
+import { forgetUnlistedLibraries, syncLibrary } from "./sync.js";
 import { rebuildWorks } from "./works.js";
 import { ZoteroClient, type ZoteroConfig } from "./zotero.js";
 
@@ -21,6 +21,11 @@ export interface RefreshOptions {
 export async function refresh(db: DB, options: RefreshOptions): Promise<{ changed: boolean; works?: number; retired?: string[] }> {
   const log = options.log ?? (() => {});
   let changed = !!options.force;
+  const forgotten = forgetUnlistedLibraries(db, options.zotero.map((c) => c.library));
+  if (forgotten.length) {
+    changed = true;
+    log(`No longer listed in HOLDINGS_ZOTERO_LIBRARIES, so dropped from the mirror: ${forgotten.join(", ")}.\n`);
+  }
   for (const config of options.zotero) {
     try {
       const r = await syncLibrary(db, new ZoteroClient(config, log), config.library);

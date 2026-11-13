@@ -9,8 +9,9 @@ import { type DB, openDb } from "../src/db.js";
 import { feedUrl, FEEDS, recordZotero } from "../src/feeds.js";
 import { ToolError, findWork, getWork, holdingsStatus } from "../src/queries.js";
 import { refresh } from "../src/refresh.js";
+import { forgetUnlistedLibraries } from "../src/sync.js";
 import { serveHttp } from "../src/server.js";
-import { isbn13, isbnsOf } from "../src/works.js";
+import { isbn13, isbnsOf, rebuildWorks } from "../src/works.js";
 
 const LIB = "users/827407";
 const BOOK_UUID = "f2b79da7-0000-4000-8000-000000000001";
@@ -405,5 +406,33 @@ describe("server", () => {
     for (const route of ["/admin", "/worklist", "/api/checks", "/zotero/users/827407/items"]) {
       expect((await fetch(`${base}${route}`, { headers: { "cf-ray": "1", "cf-access-jwt-assertion": token } })).status).toBe(404);
     }
+  });
+});
+
+describe("libraries no longer listed", () => {
+  it("are dropped from the mirror and the works, and a missing setting drops nothing", () => {
+    const db = openDb(":memory:");
+    const GROUP = "groups/61098";
+    addItem(db, "KEEP0001", { itemType: "book", title: "Kept", citationKey: "kept2001" });
+    db.prepare("INSERT INTO zotero_items (library, key, version, item_type, parent_key, deleted, data) VALUES (?, 'GONE0001', 1, 'book', NULL, 0, ?)")
+      .run(GROUP, JSON.stringify({ itemType: "book", title: "Gone", citationKey: "kept2001" }));
+    db.prepare("INSERT INTO zotero_deletions (library, key, version) VALUES (?, 'OLD00001', 1)").run(GROUP);
+    db.prepare("INSERT INTO feeds (name, ok_at) VALUES (?, '2026-11-13T00:00:00Z')").run(`zotero:${GROUP}`);
+    db.prepare("INSERT INTO zotero_readers (address, library, last_read, last_since) VALUES ('192.168.1.210', ?, '2026-11-09T00:00:00Z', 0)").run(GROUP);
+    for (const lib of [LIB, GROUP]) db.prepare("INSERT INTO meta (key, value) VALUES (?, '5')").run(`zotero_version:${lib}`);
+    db.prepare("INSERT INTO meta (key, value) VALUES (?, 'https://www.zotero.org/groups/61098')").run(`zotero_web_base:${GROUP}`);
+
+    expect(forgetUnlistedLibraries(db, [])).toEqual([]);
+    expect(db.prepare("SELECT COUNT(*) FROM zotero_items").pluck().get()).toBe(2);
+
+    expect(forgetUnlistedLibraries(db, [LIB])).toEqual([GROUP]);
+    rebuildWorks(db);
+    expect(db.prepare("SELECT library, key FROM zotero_items").all()).toEqual([{ library: LIB, key: "KEEP0001" }]);
+    for (const table of ["zotero_deletions", "zotero_readers"]) expect(db.prepare(`SELECT COUNT(*) FROM ${table} WHERE library = ?`).pluck().get(GROUP)).toBe(0);
+    expect(db.prepare("SELECT name FROM feeds WHERE name LIKE 'zotero:groups/%'").all()).toEqual([]);
+    expect(db.prepare("SELECT key FROM meta WHERE key LIKE '%groups/61098'").all()).toEqual([]);
+    expect(db.prepare("SELECT value FROM meta WHERE key = ?").pluck().get(`zotero_version:${LIB}`)).toBe("5");
+    expect(() => getWork(db, "zotero:groups/61098/GONE0001")).toThrow(ToolError);
+    expect(getWork(db, "kept2001")).toMatchObject({ key: `zotero:${LIB}/KEEP0001` });
   });
 });
