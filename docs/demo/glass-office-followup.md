@@ -1,7 +1,7 @@
 # Glass Office findings: follow-up status
 
-This tracks the fixes for the findings in iasp-mcp's
-`docs/dev-briefs/Interop test 2 The Glass Office (2026-11-13).md`, following
+This tracks the fixes for the findings in
+`docs/dev-briefs/Interop test 2 The Glass Office (2026-11-13).md` (restored here; the original in iasp-mcp is gone), following
 `docs/dev-briefs/Glass Office findings plan.md`. holdings-mcp coordinates the work, and iasp-mcp re-renders the
 essays end to end once the upstream fixes have landed.
 
@@ -70,8 +70,8 @@ Checks, all passed:
 ## Follow-ups found during the run
 
 - iasp-mcp: a relative `output_dir` for `render_document` resolves against the read-only release directory, not
-  `IASP_RENDER_DIR`, so it fails with ENOENT on the server. Fix dispatched.
+  `IASP_RENDER_DIR`, so it fails with ENOENT on the server. Fixed in iasp-mcp `968a658`; a relative path that escapes the folder is refused. Deploy blocked; it waits on the user.
 - ~~The portal's cached `render_document` schema doesn't list `keep_title_h1`.~~ It does now, after the portal sync.
-- quote-mcp: renaming `quote_worklist` to `worklist`, so the portal shows `quote_worklist` (dispatched).
+- quote-mcp: renaming `quote_worklist` to `worklist`, so the portal shows `quote_worklist`, is in PR #30 (430 tests pass). After it is merged and deployed, sync the portal.
 - quote-mcp `5af3ec3`: 844 and 845 had been backfilled as "chap. 7", because a zero-width space in the outline title
   "7.<U+200B>2" split the number. Fixed and deployed (`5af3ec3`); the backfill still has to be run.
