@@ -38,6 +38,12 @@ export function serveHttp(db: DB, options: ServeOptions): Promise<http.Server> {
     const url = new URL(req.url ?? "/", "http://localhost");
     try {
       const { via } = await authorizeRequest(req, url.pathname, access, options.accessKeys);
+      // The portal was registered at / before it became a library page. Preserve that
+      // authenticated MCP endpoint without sending HTML to its transport requests.
+      const rootMcp = url.pathname === "/" && via === "access" && (
+        req.method === "POST" || req.method === "OPTIONS" ||
+        (req.method === "GET" && (req.headers.accept ?? "").includes("text/event-stream"))
+      );
       if (url.pathname === "/favicon.svg") {
         if (req.method !== "GET" && req.method !== "HEAD") return void res.writeHead(405, { allow: "GET, HEAD" }).end();
         return void res.writeHead(200, {
@@ -49,7 +55,7 @@ export function serveHttp(db: DB, options: ServeOptions): Promise<http.Server> {
         res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(healthStatus(db)));
         return;
       }
-      if (url.pathname === "/" || (url.pathname === "/admin" && via === "lan")) {
+      if ((url.pathname === "/" && !rootMcp) || (url.pathname === "/admin" && via === "lan")) {
         if (req.method !== "GET") return void res.writeHead(405, { allow: "GET" }).end();
         return void res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" }).end(url.pathname === "/admin" ? await adminPage(db) : await homePage(db, process.env, url.searchParams, via === "lan"));
       }
@@ -61,7 +67,7 @@ export function serveHttp(db: DB, options: ServeOptions): Promise<http.Server> {
         if (url.pathname.startsWith("/worklist/")) return void res.writeHead(404).end();
         return sendZoteroApi(db, req, res, url);
       }
-      if (url.pathname !== "/mcp") {
+      if (url.pathname !== "/mcp" && !rootMcp) {
         res.writeHead(404).end();
         return;
       }

@@ -53,7 +53,9 @@ corpus catalogue base URL to offer book links to tunnel visitors too. Without a 
 remote visitors still see the locating instructions. Set `HOLDINGS_QUOTES_URL` to the public quote site
 to link directly to each current quote-store record, including works matched to Zotero. Zotero child notes are counted in results and included by the Notes filter. Their readable text appears in expanded details on the LAN; public visitors see the count and a link to the Zotero record. `/admin`, `/worklist`, the Zotero mirror, and maintenance APIs
 remain LAN-only (authenticated tunnel requests get a 404). MCP and health requests through the tunnel
-continue to require a verified Cloudflare Access token.
+continue to require a verified Cloudflare Access token. Existing portal registrations at the root URL
+remain supported: authenticated MCP POSTs at `/` use the same transport as `/mcp`, while ordinary
+browser GETs show the library. Anonymous root POSTs remain disallowed.
 
 On the LAN, the server also answers the part of the Zotero Web API that
 corpus-mcp and quote-mcp sync with, from its mirror, notes included:

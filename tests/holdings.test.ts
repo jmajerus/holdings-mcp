@@ -327,6 +327,30 @@ describe("server", () => {
     await client.close();
   });
 
+  it("preserves authenticated MCP at the portal's registered root alongside the browser page", async () => {
+    const headers = { "cf-ray": "portal", "cf-access-jwt-assertion": token };
+    const client = new Client({ name: "portal-regression", version: "1" });
+    try {
+      await client.connect(new StreamableHTTPClientTransport(new URL(`${base}/`), { requestInit: { headers } }));
+      const tools = await client.listTools();
+      expect(tools.tools.map((tool) => tool.name).sort()).toEqual(["find_work", "get_work", "status"]);
+      const result = await client.callTool({ name: "get_work", arguments: { key: "montalion2024learning" } });
+      expect(result.isError).not.toBe(true);
+    } finally {
+      await client.close();
+    }
+    const browser = await fetch(`${base}/`, { headers });
+    expect(browser.status).toBe(200);
+    expect(browser.headers.get("content-type")).toContain("text/html");
+    expect(await browser.text()).toContain("Find a work");
+    const stream = await fetch(`${base}/`, { headers: { ...headers, accept: "text/event-stream" } });
+    expect(stream.status).toBe(405);
+    expect(stream.headers.get("content-type")).toContain("application/json");
+    expect((await fetch(`${base}/`, { method: "OPTIONS", headers })).status).toBe(204);
+    expect((await fetch(`${base}/`, { method: "POST", headers: { "cf-ray": "portal" } })).status).toBe(405);
+    expect((await fetch(`${base}/`, { method: "POST", headers: { ...headers, "cf-access-jwt-assertion": "invalid" } })).status).toBe(403);
+  });
+
   it("allows anonymous read-only library browsing through the tunnel", async () => {
     const headers = { "cf-ray": "test", host: "holdings.example.com" };
     const response = await fetch(`${base}/?q=systems&has=text`, { headers });
