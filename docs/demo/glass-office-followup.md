@@ -8,7 +8,7 @@ essays end to end once the upstream fixes have landed.
 | # | Finding | Owner | Status |
 |---|---|---|---|
 | 1 | `ghost` and `md` exports don't run citeproc | iasp-mcp | **done**, deployed `e751794` |
-| 2 | holdings misses the Zotero match for main:643 (*Human Compatible*) | holdings-mcp + corpus-mcp | **done**: corpus `isbn_candidates` is live (PR #35, deployed `dfa064b`). Since the 12:42 refresh, `likely-missed-matches` flags main:643 → `zotero:users/827407/9BBBFFGU`. It also flags *Overcoming Mobbing* against `users/827407/TK8Z7VDH` and `groups/61098/2DXRTEEZ`. Both await a person's confirmation |
+| 2 | holdings misses the Zotero match for main:643 (*Human Compatible*) | holdings-mcp + corpus-mcp | **done**: `likely-missed-matches` flagged it from corpus's `isbn_candidates`, and it's now confirmed. main:643 and quote work 741 (quotes 846 and 847) join `zotero:users/827407/9BBBFFGU` (`russell2019human`) |
 | 3 | `cite_quote` on unfiled works: `pandoc: null`, misleading warning | quote-mcp + corpus-mcp | **done**, deployed (`5af3ec3`): 846 cites as `[@russell2019human, chap. 1]` with \"This work isn't filed in Zotero yet\" |
 | 4 | EPUB quotes have no locator | quote-mcp | **done**: `locators --apply` was run 2026-11-13. 844 and 845 give chap. 7.2, 846 and 847 give chap. 1, 848 gives p. 422, and none is flagged |
 | 5 | `cite_passage` names the nonexistent tool `file_zotero_reference` | corpus-mcp | **done**: the legacy `zotero_filing` block is dropped (deployed `dfa064b`) |
@@ -31,7 +31,7 @@ essays end to end once the upstream fixes have landed.
 
 ## Needs a person
 
-- Confirm main:643 → `9BBBFFGU` (`russell2019human`), and pick or dismiss *Overcoming Mobbing*'s match (`/worklist` or corpus-mcp's `/admin/zotero`).
+- Confirm or dismiss *Overcoming Mobbing*'s likely match, `users/827407/TK8Z7VDH` (`/worklist` or corpus-mcp's `/admin/zotero`).
 - Copy `glass-office.pdf`, `glass-office.epub` and `interoperability-essay.epub` from `/var/lib/iasp-mcp/renders/` on the iasp-mcp server into this directory.
 - Calibre: add ISBNs to *Reality Lost* (main:49), *Human Compatible* (main:643) and *Facilitating Software
   Architecture* (main:184), and a publisher to the last.
@@ -74,3 +74,8 @@ Checks, all passed:
 - ~~quote-mcp: rename `quote_worklist` to `worklist`.~~ Done in PR #30 (`e7006b8`). Sync the portal once more to pick it up.
 - quote-mcp `5af3ec3`: 844 and 845 had been backfilled as "chap. 7", because a zero-width space in the outline title
   "7.<U+200B>2" split the number. Fixed (`5af3ec3`) and backfilled.
+- holdings-mcp `a3200a2`: the server was still mirroring the group library `groups/61098`, which the other services
+  had stopped reading around 2026-11-09. It caused a second *Overcoming Mobbing* candidate and 323 "citekey shared"
+  drift results. A refresh now drops any library that `HOLDINGS_ZOTERO_LIBRARIES` no longer lists, and the server's
+  settings now list only `users/827407`. Works went from 2179 to 1833, `one-work-per-exact-key` is `ok`, and
+  `/zotero/groups/61098` returns 404.
