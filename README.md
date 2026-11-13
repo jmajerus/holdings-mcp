@@ -13,11 +13,13 @@ corpus-mcp and quote-mcp read Zotero through it, so only holdings-mcp syncs with
 
 ## MCP tools
 
+Through the portal, which prefixes each server's tools, these appear as `holdings_find_work`, `holdings_get_work`, and `holdings_status`.
+
 | Name | What it does |
 |---|---|
 | `find_work` | Works by words in the title or creators, by author, by any key, or by what they have (`text`, `file`, `quotes`, `notes`). |
 | `get_work` | One work by any key: every key it has, every holding, and what stands in the way of citing it. |
-| `holdings_status` | Each source's freshness and errors, counts, Calibre books not yet filed, and feed entries that couldn't be placed. |
+| `status` | Each source's freshness and errors, counts, Calibre books not yet filed, and feed entries that couldn't be placed. |
 
 Every tool takes any key a work has, and the answer lists all of them:
 `zotero:<library>/<item key>` (the work's key), the citekey (`@` optional), the bare item key, a Calibre book
@@ -36,7 +38,7 @@ npm run refresh         # sync Zotero, poll the feeds, build the works
 npm run serve           # MCP at http://localhost:8000/mcp, refreshing every 2 minutes
 ```
 
-`npm run holdings -- status` prints what `holdings_status` answers. Run the tests with `npm test`.
+`npm run holdings -- status` prints what the `status` tool answers. Run the tests with `npm test`.
 
 ## Zotero through holdings-mcp
 
@@ -83,7 +85,7 @@ It's as fresh as the last refresh: every `HOLDINGS_REFRESH_SECONDS` (120 by defa
 
 After every refresh holdings-mcp tests what must hold between the services and reports it; it never fixes
 anything ([docs/cross-service-checks.md](docs/cross-service-checks.md)). `/health` has the summary,
-`holdings_status` and `GET /api/checks` the results. `/worklist` on the LAN lists what needs a person, with links
+`status` and `GET /api/checks` the results. `/worklist` on the LAN lists what needs a person, with links
 to where each fix happens: anything failing, likely missed matches, and a citekey clash inside one library. A
 citekey shared across your two libraries is expected and left out. Fix an item at its source and it leaves at the
 next refresh. To accept one, dismiss it with a reason, kept in the store; different wording brings it back, as does

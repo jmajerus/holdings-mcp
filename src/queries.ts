@@ -3,7 +3,7 @@ import { type DB, getMeta } from "./db.js";
 import { isbn13 } from "./works.js";
 
 /**
- * What the MCP tools answer: find_work, get_work, and holdings_status. Every work comes with all its
+ * What the MCP tools answer: find_work, get_work, and status. Every work comes with all its
  * keys and its holdings, and each holding names the tools to call next, so an agent never has to learn
  * from an empty result that a paper book has no text to search.
  */

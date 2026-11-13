@@ -18,6 +18,8 @@ export interface BookEntry {
   formats: string[];
   has_text: boolean;
   isbns?: string[];
+  /** ISBNs printed in the book's text but not in its Calibre record. Editions print each other's, so they only suggest a match. */
+  isbn_candidates?: string[];
   citekey?: string | null;
   citekey_source?: string | null;
   /** The matched item; matched_by is "confirmed", "calibre_uuid", or "isbn", all of them matches. */
@@ -90,7 +92,7 @@ function check(required: Record<string, Rule>, optional: Record<string, Rule>) {
 
 const bookFields = check(
   { book_id: nonEmpty, library: text, title: text, authors: texts, formats: texts, has_text: flag },
-  { calibre_uuid: nullable(nonEmpty), year, isbns: texts, citekey: nullable(nonEmpty), citekey_source: nullable(text), zotero: zoteroRef },
+  { calibre_uuid: nullable(nonEmpty), year, isbns: texts, isbn_candidates: texts, citekey: nullable(nonEmpty), citekey_source: nullable(text), zotero: zoteroRef },
 );
 const countFields = check(
   { quotes: count, notes: count },
@@ -153,7 +155,7 @@ export async function pollFeed(db: DB, feed: Feed, url: string, timeoutMs = 30_0
   }
 }
 
-/** Records a Zotero library's sync on its feed row, so holdings_status shows it beside the others. */
+/** Records a Zotero library's sync on its feed row, so the status tool shows it beside the others. */
 export function recordZotero(db: DB, library: string, result: { changed: number; deleted: number; version: number } | { error: string }): void {
   const at = now();
   const name = `zotero:${library}`;

@@ -14,7 +14,7 @@ const LABELS: Record<string, string> = {
   "one-quote-work-per-item": "Two quote-mcp works name one item",
   "one-work-per-exact-key": "One key names two works",
   "filed-but-unmatched": "Filed in Zotero, not matched in corpus-mcp",
-  "likely-missed-matches": "Unfiled book shares an ISBN with a Zotero item",
+  "likely-missed-matches": "Unfiled book shares or prints an ISBN of a Zotero item",
 };
 
 /** Services and sources: shown as a banner, since no row of data would fix them. */

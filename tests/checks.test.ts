@@ -152,6 +152,13 @@ describe("likely-missed-matches", () => {
     expect(db.prepare("SELECT work_key FROM work_keys WHERE key = '9780306406157' AND work_key = ?").get(`calibre:${UUID}`)).toBeTruthy();
   });
 
+  it("matches an ISBN printed in the book's text when its Calibre record has none", () => {
+    item("9BBBFFGU", { ISBN: "9780525558620", citationKey: "russell2019human" });
+    run([book("main:643", { calibre_uuid: UUID, isbn_candidates: ["978-0-525-55862-0", "9780525558637"] })], []);
+    expect(result("likely-missed-matches")).toMatchObject({ result: "drift", count: 1 });
+    expect(JSON.stringify(checkResults(db))).toContain("prints an ISBN of zotero:users/1/9BBBFFGU");
+  });
+
   it("says it can't tell when the books feed sends no ISBNs, rather than passing", () => {
     run([book("main:1")], []);
     expect(result("likely-missed-matches")).toMatchObject({ result: "skipped", reason: "corpus-mcp's books feed sends no ISBNs" });
@@ -450,21 +457,21 @@ describe("home page", () => {
   it("lists the core services and the clients apart, using overrides and feed addresses", async () => {
     run([], []);
     db.prepare("UPDATE feeds SET url = 'http://books.example:8000/api/holdings/books' WHERE name = 'books'").run();
-    const everything = "corpus-mcp=@,quote-mcp=@,terminology-mcp=@,zotero-mcp=@,concept-clusters=@".replaceAll("@", fakeBase);
+    const everything = "corpus-mcp=@,quote-mcp=@,terminology-mcp=@,iasp-mcp=@,zotero-mcp=@,concept-clusters=@".replaceAll("@", fakeBase);
     const page = await adminPage(db, { HOLDINGS_LINKS: everything });
     const core = page.indexOf("<h2>Core services"), clients = page.indexOf("<h2>Clients");
     expect(core).toBeGreaterThan(-1);
     expect(clients).toBeGreaterThan(core);
-    for (const name of ["corpus-mcp", "quote-mcp", "terminology-mcp", "zotero-mcp"]) expect(page.indexOf(`<strong>${name}`)).toBeLessThan(clients);
+    for (const name of ["corpus-mcp", "quote-mcp", "terminology-mcp", "iasp-mcp", "zotero-mcp"]) expect(page.indexOf(`<strong>${name}`)).toBeLessThan(clients);
     expect(page.indexOf("<strong>concept-clusters")).toBeGreaterThan(clients);
     expect(page).toContain(`href="${fakeBase}/admin/zotero"`);
     expect(page).toContain('href="/worklist"');
-    const fromFeed = await adminPage(db, { HOLDINGS_LINKS: "quote-mcp=@,terminology-mcp=@,zotero-mcp=@,concept-clusters=@,typo=@".replaceAll("@", fakeBase) });
+    const fromFeed = await adminPage(db, { HOLDINGS_LINKS: "quote-mcp=@,terminology-mcp=@,iasp-mcp=@,zotero-mcp=@,concept-clusters=@,typo=@".replaceAll("@", fakeBase) });
     expect(fromFeed).toContain('href="http://books.example:8000/admin"');
     expect(fromFeed).toContain("entries it can't use: typo");
   }, 15_000);
 
-  const dashboardEnv = () => ({ HOLDINGS_LINKS: "corpus-mcp=@,quote-mcp=@,terminology-mcp=@,zotero-mcp=@,concept-clusters=@".replaceAll("@", fakeBase) });
+  const dashboardEnv = () => ({ HOLDINGS_LINKS: "corpus-mcp=@,quote-mcp=@,terminology-mcp=@,iasp-mcp=@,zotero-mcp=@,concept-clusters=@".replaceAll("@", fakeBase) });
 
   it("shows readable checks, saved feed errors and empty states without needing JSON", async () => {
     let page = await homePage(db, dashboardEnv());
@@ -713,7 +720,7 @@ describe("home page", () => {
   it("serves library browsing through the tunnel while keeping admin on the LAN", async () => {
     run([], []);
     const saved = process.env.HOLDINGS_LINKS;
-    process.env.HOLDINGS_LINKS = "corpus-mcp=@,quote-mcp=@,terminology-mcp=@,zotero-mcp=@,concept-clusters=@".replaceAll("@", fakeBase);
+    process.env.HOLDINGS_LINKS = "corpus-mcp=@,quote-mcp=@,terminology-mcp=@,iasp-mcp=@,zotero-mcp=@,concept-clusters=@".replaceAll("@", fakeBase);
     const server = await serveHttp(db, { host: "127.0.0.1", port: 0, access: { lanHosts: ["127.0.0.1"] } });
     const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     item("AAAA0001", { title: "Search target" });

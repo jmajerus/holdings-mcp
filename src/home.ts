@@ -25,6 +25,7 @@ const SERVICES: Entry[] = [
     links: [["Admin", "/admin"], ["Zotero matching", "/admin/zotero"]] },
   { name: "quote-mcp", about: "Quotes and margin notes", base: "http://quote-mcp.localdomain:8000", probe: "/health", feed: "counts", links: [["Admin", "/admin"]] },
   { name: "terminology-mcp", about: "Schemes, terms, and concept sets", base: "http://terminology-mcp.localdomain:8000", probe: "/health", links: [["Editor", "/"], ["Concept sets", "/sets"]] },
+  { name: "iasp-mcp", about: "IASP authoring vocabulary, validating, and rendering", base: "http://iasp-mcp.localdomain:8000", probe: "/health", links: [["Home", "/"], ["Admin", "/admin"]] },
   { name: "zotero-mcp", about: "Managing the Zotero library, and the one path that writes to it. It has no web pages", base: "http://zotero-mcp.localdomain:8000", probe: "/mcp", links: [] },
 ];
 

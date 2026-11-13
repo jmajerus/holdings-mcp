@@ -53,7 +53,7 @@ export function createServer(db: DB): McpServer {
     annotations: readOnly,
   }, ({ key }) => run(() => getWork(db, key)));
 
-  server.registerTool("holdings_status", {
+  server.registerTool("status", {
     title: "Holdings status",
     description: "Each source's freshness and errors (the Zotero libraries, corpus-mcp's books, quote-mcp's quote counts), how many works and holdings there are, Calibre books not yet filed in Zotero, the cross-service checks (each ok, drift, fail, or skipped, with examples and the repository that owns the fix), and who last read the Zotero mirror.",
     inputSchema: {},

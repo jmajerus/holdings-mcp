@@ -1,7 +1,7 @@
 import { type DB, now } from "./db.js";
 import { type BookEntry, type CountEntry, snapshot } from "./feeds.js";
 import { holdingsFeeds } from "./queries.js";
-import { isbn13, workKey } from "./works.js";
+import { isbn13, isbnsOf, workKey } from "./works.js";
 
 /**
  * What must hold between the services (docs/cross-service-checks.md). Each service tests its own logic; these
@@ -118,14 +118,23 @@ export const CHECKS: Check[] = [
     run: (db) => {
       // With no ISBNs from corpus-mcp this can't find anything, and ok would claim it had looked.
       const books = snapshot<BookEntry>(db, "books");
-      if (books.length && !books.some((b) => b.isbns?.length)) throw new Error("corpus-mcp's books feed sends no ISBNs");
+      if (books.length && !books.some((b) => b.isbns?.length || b.isbn_candidates?.length)) throw new Error("corpus-mcp's books feed sends no ISBNs");
       const items = new Map<string, string[]>();
       for (const w of db.prepare("SELECT key, isbns FROM works WHERE kind = 'zotero' AND isbns != '[]'").all() as { key: string; isbns: string }[]) {
         for (const isbn of new Set((JSON.parse(w.isbns) as string[]).map(isbn13))) items.set(isbn, [...items.get(isbn) ?? [], w.key]);
       }
+      const sharing = (isbns: string[]) => [...new Set(isbns.flatMap((isbn) => items.get(isbn13(isbn)) ?? []))];
+      // ISBNs printed in the text, which many Calibre records lack (Interop test 2, finding 2), keyed as rebuildWorks keys the book's work.
+      const printed = new Map<string, string[]>();
+      for (const b of books) {
+        const key = b.calibre_uuid ? `calibre:${b.calibre_uuid}` : b.book_id;
+        printed.set(key, [...printed.get(key) ?? [], ...isbnsOf((b.isbn_candidates ?? []).join(" "))]);
+      }
       return calibreWorks(db).flatMap((w) => {
-        const shared = [...new Set((JSON.parse(w.isbns) as string[]).flatMap((isbn) => items.get(isbn13(isbn)) ?? []))];
-        return shared.length ? [{ ref: w.key, detail: `"${w.title}" shares an ISBN with ${shared.join(", ")}.`, severity: "drift" as const, allowanceMs: null }] : [];
+        const shared = sharing(JSON.parse(w.isbns) as string[]);
+        if (shared.length) return [{ ref: w.key, detail: `"${w.title}" shares an ISBN with ${shared.join(", ")}.`, severity: "drift" as const, allowanceMs: null }];
+        const inText = sharing(printed.get(w.key) ?? []);
+        return inText.length ? [{ ref: w.key, detail: `"${w.title}" prints an ISBN of ${inText.join(", ")} in its text (not in its Calibre record).`, severity: "drift" as const, allowanceMs: null }] : [];
       });
     },
   },

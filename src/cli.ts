@@ -18,7 +18,7 @@ import { zoteroConfigs } from "./zotero.js";
  *   holdings-mcp serve                 MCP over HTTP at /mcp and /health (HOLDINGS_HOST, HOLDINGS_PORT), and on the
  *                                      LAN the Zotero mirror at /zotero and POST /api/refresh; refreshing every
  *                                      HOLDINGS_REFRESH_SECONDS (120; 0 for only on request).
- *   holdings-mcp status                What holdings_status answers.
+ *   holdings-mcp status                What the status tool answers.
  *   holdings-mcp migrate [--backup <file>]
  *                                      Brings the store up to this build's schema, first copying it to <file> when
  *                                      that changes the schema (the deploy keeps the copy for a rollback).

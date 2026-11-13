@@ -321,7 +321,7 @@ describe("server", () => {
     const client = new Client({ name: "test", version: "0" });
     await client.connect(new StreamableHTTPClientTransport(new URL(`${base}/mcp`)));
     const { tools } = await client.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual(["find_work", "get_work", "holdings_status"]);
+    expect(tools.map((t) => t.name).sort()).toEqual(["find_work", "get_work", "status"]);
     const r = await client.callTool({ name: "get_work", arguments: { key: "nope" } });
     expect(r.isError).toBe(true);
     await client.close();
