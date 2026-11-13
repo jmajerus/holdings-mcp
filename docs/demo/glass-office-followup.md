@@ -9,12 +9,12 @@ essays end to end once the upstream fixes have landed.
 |---|---|---|---|
 | 1 | `ghost` and `md` exports don't run citeproc | iasp-mcp | **done**, deployed `e751794` |
 | 2 | holdings misses the Zotero match for main:643 (*Human Compatible*) | holdings-mcp + corpus-mcp | **done**: corpus `isbn_candidates` is live (PR #35, deployed `dfa064b`). Since the 12:42 refresh, `likely-missed-matches` flags main:643 → `zotero:users/827407/9BBBFFGU`. It also flags *Overcoming Mobbing* against `users/827407/TK8Z7VDH` and `groups/61098/2DXRTEEZ`. Both await a person's confirmation |
-| 3 | `cite_quote` on unfiled works: `pandoc: null`, misleading warning | quote-mcp + corpus-mcp | quote-mcp PR #29 (schema v7; not merged or deployed): key falls back from corpus citekey to `proposed_citekey`; honest warning. corpus sends `proposed_citekey` (live) |
-| 4 | EPUB quotes have no locator | quote-mcp | quote-mcp PR #29: chapter locators (`chap. 7.2`); backfill command `quote-mcp locators [--apply]`; 844–847 not backfilled yet (needs the deploy and server access) |
+| 3 | `cite_quote` on unfiled works: `pandoc: null`, misleading warning | quote-mcp + corpus-mcp | **done**, deployed (`5af3ec3`): 846 cites as `[@russell2019human, chap. 1]` with \"This work isn't filed in Zotero yet\" |
+| 4 | EPUB quotes have no locator | quote-mcp | **done**, deployed: 846 and 847 give chap. 1. 844 and 845 still give chap. 7 until `quote-mcp locators --apply` is run on the server |
 | 5 | `cite_passage` names the nonexistent tool `file_zotero_reference` | corpus-mcp | **done**: the legacy `zotero_filing` block is dropped (deployed `dfa064b`) |
 | 6 | Docs give the note-variant count as 22; it is 23 | iasp-mcp | **done** (`e751794`): the count is derived from `NOTE_VARIANT_SPECS` |
 | 7 | Ghost export keeps the H1; `>` inside `.epigraph` nests | iasp-mcp | **done** (`e751794`): the H1 is stripped by default (`keep_title_h1` keeps it); `epigraph-blockquote` warning added |
-| 8 | Portal tool names changed mid-session | portal config / all | holdings now exposes `holdings_status` (was `holdings_holdings_status`); corpus now exposes `corpus_status` (deployed), and its six retired quote tools are gone |
+| 8 | Portal tool names changed mid-session | portal config / all | **portal synced** 2026-11-13: holdings now exposes `holdings_status` (was `holdings_holdings_status`); corpus now exposes `corpus_status` (deployed), and its six retired quote tools are gone |
 | 9 | Calibre metadata gaps (no ISBNs; Harmel-Law has no publisher) | a person, in Calibre | not code; see below |
 | 10 | ~~Quote 848's page~~ | — | **withdrawn**: p. 422 is correct. File page 452 has the printed label 422. The 392 came from passing the printed number to `cite_passage`, whose `page` is a file page. The essay source is restored |
 
@@ -31,8 +31,7 @@ essays end to end once the upstream fixes have landed.
 
 ## Needs a person
 
-- quote-mcp: merge PR #29, deploy (schema v7 migration), then run `quote-mcp locators --id 844,845,846,847` (844 and 845 become chap. 7.2 with `5af3ec3`) (a dry run; without `--id` it also lists any other PDF quotes cited by physical page) and `--apply` on the server.
-- Optional: rename quote-mcp's `quote_worklist` to `worklist`, so the portal shows `quote_worklist` instead of `quote_quote_worklist`.
+- quote-mcp: on the server, run `quote-mcp locators --id 844,845` (a dry run), then `--apply`. 844 and 845 should become chap. 7.2.
 - Confirm main:643 → `9BBBFFGU` (`russell2019human`), and pick or dismiss *Overcoming Mobbing*'s match (`/worklist` or corpus-mcp's `/admin/zotero`).
 - Copy `glass-office.pdf`, `glass-office.epub` and `interoperability-essay.epub` from `/var/lib/iasp-mcp/renders/` on the iasp-mcp server into this directory.
 - Calibre: add ISBNs to *Reality Lost* (main:49), *Human Compatible* (main:643) and *Facilitating Software
@@ -71,8 +70,8 @@ Checks, all passed:
 ## Follow-ups found during the run
 
 - iasp-mcp: a relative `output_dir` for `render_document` resolves against the read-only release directory, not
-  `IASP_RENDER_DIR`, so it fails with ENOENT on the server. Not yet fixed.
-- The portal's cached `render_document` schema doesn't list `keep_title_h1` yet. It should appear when the portal
-  refreshes.
+  `IASP_RENDER_DIR`, so it fails with ENOENT on the server. Fix dispatched.
+- ~~The portal's cached `render_document` schema doesn't list `keep_title_h1`.~~ It does now, after the portal sync.
+- quote-mcp: renaming `quote_worklist` to `worklist`, so the portal shows `quote_worklist` (dispatched).
 - quote-mcp `5af3ec3`: 844 and 845 had been backfilled as "chap. 7", because a zero-width space in the outline title
-  "7.<U+200B>2" split the number. Fixed on main, not yet deployed.
+  "7.<U+200B>2" split the number. Fixed and deployed (`5af3ec3`); the backfill still has to be run.
