@@ -1,4 +1,4 @@
-import { type DB, now } from "./db.js";
+import { type DB, getMeta, now, setMeta } from "./db.js";
 import { type BookEntry, type CountEntry, snapshot } from "./feeds.js";
 
 /**
@@ -61,6 +61,16 @@ export function isbnsOf(text: unknown): string[] {
   const found = String(text ?? "").toUpperCase().match(/[0-9][0-9X-]{8,16}/g) ?? [];
   return [...new Set(found.map((s) => s.replace(/-/g, "")).filter((s) => /^(\d{9}[\dX]|\d{13})$/.test(s)))];
 }
+
+/**
+ * Raise when rebuildWorks derives something new from the same mirror and feeds (2: proposed citekeys). A store built
+ * by an older number is rebuilt at the next refresh even when no source changed; otherwise a deploy that adds a
+ * key shows nothing new until some feed happens to change.
+ */
+export const WORKS_VERSION = 2;
+
+/** Whether the works were built by an older rebuildWorks than this one. */
+export const worksOutdated = (db: DB) => getMeta(db, "works_version") !== String(WORKS_VERSION);
 
 export interface RebuildResult {
   works: number;
@@ -201,6 +211,7 @@ export function rebuildWorks(db: DB): RebuildResult {
     }
     // Former keys keep resolving, for as long as the work they moved to exists.
     db.exec("INSERT OR IGNORE INTO work_keys (key, work_key, kind) SELECT f.key, f.work_key, 'former' FROM former_keys f JOIN works w ON w.key = f.work_key");
+    setMeta(db, "works_version", String(WORKS_VERSION));
   })();
   return { works: works.size, retired };
 }

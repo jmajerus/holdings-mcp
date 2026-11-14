@@ -3,7 +3,7 @@ import { type DB, now, setMeta } from "./db.js";
 import { FEEDS, feedUrl, pollFeed, recordZotero } from "./feeds.js";
 import { pollTools } from "./tools.js";
 import { forgetUnlistedLibraries, syncLibrary } from "./sync.js";
-import { rebuildWorks } from "./works.js";
+import { rebuildWorks, worksOutdated } from "./works.js";
 import { ZoteroClient, type ZoteroConfig } from "./zotero.js";
 
 /**
@@ -21,7 +21,7 @@ export interface RefreshOptions {
 
 export async function refresh(db: DB, options: RefreshOptions): Promise<{ changed: boolean; works?: number; retired?: string[] }> {
   const log = options.log ?? (() => {});
-  let changed = !!options.force;
+  let changed = !!options.force || worksOutdated(db);
   const forgotten = forgetUnlistedLibraries(db, options.zotero.map((c) => c.library));
   if (forgotten.length) {
     changed = true;

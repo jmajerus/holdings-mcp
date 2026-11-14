@@ -228,6 +228,14 @@ describe("feeds", () => {
     expect(findWork(db, { has: ["text"] }).total).toBe(2);
   });
 
+  it("rebuilds works an older release built, though no source changed", async () => {
+    db.prepare("UPDATE meta SET value = '1' WHERE key = 'works_version'").run();
+    db.prepare("DELETE FROM work_keys WHERE kind = 'book'").run();
+    expect((await refresh(db, { zotero: [], env })).changed).toBe(true);
+    expect(getWork(db, "main:223")).toMatchObject({ citekey: "montalion2024learning" });
+    expect((await refresh(db, { zotero: [], env })).changed).toBe(false);
+  });
+
   it("keeps the last good snapshot when a feed breaks", async () => {
     bodies["/api/holdings/books"] = { version: 2, books: "?" };
     await refresh(db, { zotero: [], env });
