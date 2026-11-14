@@ -93,7 +93,14 @@ function sourceOrigin(db: DB, feed: string): string | null {
   }
 }
 
-/** Where the fix happens: the Zotero items a finding names, and the service's own page for what it owns. */
+/** The Calibre book a finding is about, as corpus-mcp names it (main:42). */
+function bookOf(db: DB, ref: string): string | null {
+  if (ref.startsWith("book:")) return ref.slice(5);
+  const row = db.prepare("SELECT key FROM work_keys WHERE work_key = ? AND kind = 'book' ORDER BY key").get(ref) as { key: string } | undefined;
+  return row?.key ?? null;
+}
+
+/** Where the fix happens: the Zotero items a finding names, and the page of the service that owns the rest. */
 function links(db: DB, item: WorklistItem): string {
   const out: string[] = [];
   for (const [, library, id, key] of item.detail.matchAll(/\b(users\/\d+|groups\/(\d+))\/([A-Z0-9]{8})\b/g)) {
@@ -102,9 +109,29 @@ function links(db: DB, item: WorklistItem): string {
   }
   const corpus = sourceOrigin(db, "books");
   const quotes = sourceOrigin(db, "counts");
-  if (corpus && (item.check === "filed-but-unmatched" || item.check === "likely-missed-matches" || item.ref.startsWith("book:"))) out.push(`<a href="${esc(corpus)}/admin/zotero">corpus-mcp</a>`);
+  if (corpus && (item.check === "filed-but-unmatched" || item.check === "likely-missed-matches" || item.ref.startsWith("book:"))) {
+    // The book's own page: /admin/zotero lists a pair only when title, first author, and year agree, which these often don't.
+    const book = bookOf(db, item.ref);
+    out.push(book ? `<a href="${esc(corpus)}/admin/books/${encodeURIComponent(book)}">${esc(book)} in corpus-mcp</a>` : `<a href="${esc(corpus)}/admin/zotero">corpus-mcp</a>`);
+  }
   if (quotes && (item.check === "one-quote-work-per-item" || item.ref.startsWith("quote:") || item.ref.startsWith("quotes:"))) out.push(`<a href="${esc(quotes)}/admin">quote-mcp</a>`);
   return [...new Set(out)].join(" · ");
+}
+
+/** What a person does about a finding, where the detail alone doesn't say. */
+export function nextStep(db: DB, item: WorklistItem): string {
+  const items = [...item.detail.matchAll(/\b((?:users|groups)\/\d+\/[A-Z0-9]{8})\b/g)].map((m) => m[1]);
+  if (item.check === "likely-missed-matches") {
+    const book = bookOf(db, item.ref);
+    const citekey = items.length === 1 ? (db.prepare("SELECT citekey FROM works WHERE key = ?").get(`zotero:${items[0]}`) as { citekey: string | null } | undefined)?.citekey : null;
+    const pin = citekey ? `pin ${citekey} on the book's page in corpus-mcp${book ? ` (or pin_citekey ${book} ${citekey})` : ""}` : "pin the item's citekey on the book's page in corpus-mcp";
+    return `If it's the same book, ${pin}. If it's another edition, dismiss it here.`;
+  }
+  if (item.check === "items-exist") {
+    const other = item.ref.startsWith("book:") ? "confirm another item on the book's page in corpus-mcp" : "match the work to another item in quote-mcp";
+    return /trash/.test(item.detail) ? `Restore the item from Zotero's trash, or ${other}.` : `File the item in Zotero again, or ${other}.`;
+  }
+  return "";
 }
 
 const hidden = (item: WorklistItem) => `<input type="hidden" name="check" value="${esc(item.check)}"><input type="hidden" name="ref" value="${esc(item.ref)}">`;
@@ -113,7 +140,7 @@ function page(db: DB): string {
   const { open, dismissed, banners } = worklist(db);
   const summary = checkSummary(db);
   const row = (item: WorklistItem, i: number) => `<tr><td><span class="${item.severity === "fail" ? "fail" : "drift"}">${item.severity}</span></td>
-<td><strong>${esc(item.label)}</strong><div>${esc(item.detail)}</div><div class="s">${esc(item.ref)} · first seen ${esc(item.first_seen.slice(0, 10))}${links(db, item) ? ` · ${links(db, item)}` : ""}</div></td>
+<td><strong>${esc(item.label)}</strong><div>${esc(item.detail)}</div>${nextStep(db, item) ? `<div class="s">${esc(nextStep(db, item))}</div>` : ""}<div class="s">${esc(item.ref)} · first seen ${esc(item.first_seen.slice(0, 10))}${links(db, item) ? ` · ${links(db, item)}` : ""}</div></td>
 <td><form method="post" action="/worklist/dismiss">${hidden(item)}<label class="s" for="reason-${i}">Why is this fine?</label><input id="reason-${i}" name="reason" required maxlength="${REASON_MAX}"><button>Dismiss</button></form></td></tr>`;
   const done = (item: WorklistItem) => `<tr><td><strong>${esc(item.label)}</strong><div>${esc(item.detail)}</div><div class="s">${esc(item.dismissed!.reason)} · ${esc(item.dismissed!.at.slice(0, 10))}</div></td>
 <td><form method="post" action="/worklist/restore">${hidden(item)}<button>Bring back</button></form></td></tr>`;

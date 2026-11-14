@@ -171,7 +171,7 @@ describe("likely-missed-matches", () => {
     const start = Date.now();
     run([book("main:1", { calibre_uuid: UUID, isbns: ["9781098151330"] }), book("main:2", { isbns: ["9780000000002"] })], [], {}, start);
     runChecks(db, {}, start + 1000 * HOUR);
-    expect(result("likely-missed-matches")).toMatchObject({ result: "drift", count: 1, fix: "a person, at corpus-mcp's /admin/zotero" });
+    expect(result("likely-missed-matches")).toMatchObject({ result: "drift", count: 1, fix: "a person, on the book's page in corpus-mcp (pin the item's citekey)" });
   });
 });
 
@@ -357,10 +357,13 @@ describe("worklist", () => {
   });
 
   it("dismisses with a reason, and brings the finding back on request", async () => {
-    item("AAAA0001", { ISBN: "9781098151330" });
+    item("AAAA0001", { ISBN: "9781098151330", citationKey: "missed2001" });
     run(missed(), []);
+    db.prepare("UPDATE feeds SET url = 'http://corpus-mcp.example:8000/api/holdings/books' WHERE name = 'books'").run();
     const page = await (await fetch(`${base}/worklist`)).text();
     expect(page).toContain("zotero://select/library/items/AAAA0001");
+    expect(page).toContain("http://corpus-mcp.example:8000/admin/books/main%3A1");
+    expect(page).toContain("pin missed2001 on the book's page in corpus-mcp (or pin_citekey main:1 missed2001)");
     expect((await post("/worklist/dismiss", { check: "likely-missed-matches", ref: `calibre:${UUID}`, reason: "" })).status).toBe(400);
     const done = await post("/worklist/dismiss", { check: "likely-missed-matches", ref: `calibre:${UUID}`, reason: "Different edition" });
     expect(done.status).toBe(303);

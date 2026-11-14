@@ -116,7 +116,7 @@ export const CHECKS: Check[] = [
   },
   {
     name: "likely-missed-matches",
-    fix: "a person, at corpus-mcp's /admin/zotero",
+    fix: "a person, on the book's page in corpus-mcp (pin the item's citekey)",
     feeds: (db) => ["books", ...zoteroFeeds(db)],
     run: (db) => {
       // With no ISBNs from corpus-mcp this can't find anything, and ok would claim it had looked.
