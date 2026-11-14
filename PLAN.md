@@ -288,6 +288,12 @@ The dev-briefs `holdings-and-quotes.md` in corpus-mcp and quote-mcp
   holdings-mcp would make a third copy. A shared package, on the model of
   `@jmajerus/citekey` (`packages/citekey` in corpus-mcp, which quote-mcp's
   PLAN.md names for the Zotero client), or copies kept in step?
+- **Credentials in proposed citekeys** (logged 2026-11-14). A Calibre
+  author with a trailing credential proposes a key from the credential:
+  "Maureen Duffy Ph.D." gives `phd2013overcoming` (main:649). corpus-mcp's
+  Zotero matching ignores credentials since its PR #38, but the proposal
+  comes from `@jmajerus/citekey`, and a fix there changes proposed keys in
+  every service that uses it. Not started. A pinned key is unaffected.
 - **Later, the public sites.** corpus-mcp's and quote-mcp's public sites
   link to each other by exchanging citekey lists. holdings-mcp could serve
   that join instead, if it ever has a public face.
