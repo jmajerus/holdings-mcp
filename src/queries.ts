@@ -41,7 +41,7 @@ const year = (y: string | null) => (y && /^\d+$/.test(y) ? Number(y) : y);
 function describe(db: DB, row: WorkRow, full = false) {
   // A former key can also still be an alias (a filed book's calibre:<uuid>), so it's listed by the table that records it.
   const former = (db.prepare("SELECT key FROM former_keys WHERE work_key = ? ORDER BY key").all(row.key) as { key: string }[]).map((r) => r.key);
-  const keyRows = (db.prepare("SELECT key, kind FROM work_keys WHERE work_key = ? AND kind NOT IN ('work', 'former') ORDER BY kind, key").all(row.key) as { key: string; kind: string }[])
+  const keyRows = (db.prepare("SELECT key, kind FROM work_keys WHERE work_key = ? AND kind NOT IN ('work', 'former', 'proposed') ORDER BY kind, key").all(row.key) as { key: string; kind: string }[])
     .filter((k) => !former.includes(k.key));
   const keysOf = (kind: string) => keyRows.filter((k) => k.kind === kind).map((k) => k.key);
   const keys: Record<string, string | string[]> = {};
@@ -114,7 +114,7 @@ function keyForms(key: string): string[] {
 
 function resolve(db: DB, key: string): WorkRow[] {
   const forms = keyForms(key);
-  return db.prepare(`SELECT DISTINCT w.* FROM works w JOIN work_keys k ON k.work_key = w.key WHERE k.key IN (${forms.map(() => "?").join(", ")}) ORDER BY w.key`).all(...forms) as WorkRow[];
+  return db.prepare(`SELECT DISTINCT w.* FROM works w JOIN work_keys k ON k.work_key = w.key WHERE k.kind != 'proposed' AND k.key IN (${forms.map(() => "?").join(", ")}) ORDER BY w.key`).all(...forms) as WorkRow[];
 }
 
 export function getWork(db: DB, key: string) {

@@ -22,6 +22,8 @@ export interface BookEntry {
   isbn_candidates?: string[];
   citekey?: string | null;
   citekey_source?: string | null;
+  /** The citekey corpus-mcp would give a book that has none yet: what cite_passage hands an author before the book is filed. */
+  proposed_citekey?: string | null;
   /** The matched item; matched_by is "confirmed", "calibre_uuid", or "isbn", all of them matches. */
   zotero?: { library: string; key: string; matched_by?: string } | null;
 }
@@ -92,7 +94,7 @@ function check(required: Record<string, Rule>, optional: Record<string, Rule>) {
 
 const bookFields = check(
   { book_id: nonEmpty, library: text, title: text, authors: texts, formats: texts, has_text: flag },
-  { calibre_uuid: nullable(nonEmpty), year, isbns: texts, isbn_candidates: texts, citekey: nullable(nonEmpty), citekey_source: nullable(text), zotero: zoteroRef },
+  { calibre_uuid: nullable(nonEmpty), year, isbns: texts, isbn_candidates: texts, citekey: nullable(nonEmpty), citekey_source: nullable(text), proposed_citekey: nullable(nonEmpty), zotero: zoteroRef },
 );
 const countFields = check(
   { quotes: count, notes: count },

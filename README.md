@@ -70,6 +70,7 @@ corpus-mcp and quote-mcp sync with, from its mirror, notes included:
 | `/` | Read-only library browsing, also available through the Cloudflare tunnel without sign-in. Library search with minimal stat cards, title/author and exact-key search, and material filters. Search uses `q`, `key`, `has` (text/file/quotes/notes), and `offset` |
 | `/admin` | Library maintenance: worklist access, complete formatted health and check responses (including deployment metadata, finding timestamps, source snapshots, and Zotero readers), feed freshness, and live service links. Addresses can be overridden with `HOLDINGS_LINKS` |
 | `/worklist` | The page below: what the checks found that needs a person |
+| `GET /api/bibliography?citekeys=a,b` | A bibliography for the citekeys a document cites (500 at most), so a renderer needn't be handed a `.bib`: `items` (CSL JSON from the mirror, each `id` the citekey), `unfiled` (Calibre books not in Zotero that have the citekey, pinned or only proposed, with the `book_id` to ask corpus-mcp's `/api/csl` about), `ambiguous` (a citekey two works share, with its candidates), and `missing` |
 | `GET /api/checks` | The cross-service checks in full, and who last read `/zotero`; `since=<time>` limits findings to those first seen since then |
 
 Each sets `Last-Modified-Version` and, for listings, `Total-Results`, as Zotero does. The versions are
@@ -90,12 +91,20 @@ After every refresh holdings-mcp tests what must hold between the services and r
 anything ([docs/cross-service-checks.md](docs/cross-service-checks.md)). `/health` has the summary,
 `status` and `GET /api/checks` the results. `/worklist` on the LAN lists what needs a person, with links
 to where each fix happens: anything failing, likely missed matches, and a citekey clash inside one library. A
-citekey shared across your two libraries is expected and left out. Fix an item at its source and it leaves at the
+citekey shared across two mirrored libraries is expected and left out. Fix an item at its source and it leaves at the
 next refresh. To accept one, dismiss it with a reason, kept in the store; different wording brings it back, as does
 its returning after it went away. To check who reads the Zotero mirror, list them:
 
 ```bash
 HOLDINGS_ZOTERO_READERS=corpus-mcp=192.168.1.179:300,quote-mcp=192.168.1.210:1800   # name=address:seconds it syncs every
+```
+
+To check that each service still lists the tools the authoring skills call (`TOOLS_SKILLS_USE` in
+[src/tools.ts](src/tools.ts)), name their MCP endpoints. Each is asked for its tools every ten minutes, and a
+tool that's gone is a `fail` on the worklist. Unset, the check is left out:
+
+```bash
+HOLDINGS_TOOL_SERVERS=corpus-mcp=http://corpus-mcp.localdomain:8000/mcp,quote-mcp=http://quote-mcp.localdomain:8000/mcp
 ```
 
 ## Deploying

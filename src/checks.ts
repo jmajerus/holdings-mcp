@@ -1,6 +1,7 @@
 import { type DB, now } from "./db.js";
 import { type BookEntry, type CountEntry, snapshot } from "./feeds.js";
 import { holdingsFeeds } from "./queries.js";
+import { listedTools, TOOLS_SKILLS_USE, toolServers } from "./tools.js";
 import { isbn13, isbnsOf, workKey } from "./works.js";
 
 /**
@@ -30,6 +31,8 @@ interface Check {
   /** The feeds its verdict rests on. */
   feeds(db: DB): string[];
   run(db: DB, env: NodeJS.ProcessEnv, at: number): Finding[];
+  /** False when the check isn't set up here: it is then left out of the results rather than reported as skipped. */
+  applies?(env: NodeJS.ProcessEnv): boolean;
 }
 
 const zoteroFeeds = (db: DB) => (db.prepare("SELECT name FROM feeds WHERE name LIKE 'zotero:%' ORDER BY name").pluck().all() as string[]);
@@ -150,6 +153,20 @@ export const CHECKS: Check[] = [
       return [{ ref: reader.name, detail: `${reader.name} (${reader.address}) ${when}; it syncs every ${reader.seconds} s. It may have gone back to zotero.org, or its sync stopped.`, severity: "drift" as const, allowanceMs: allowed }];
     }),
   },
+  {
+    // A renamed or dropped tool breaks a skill mid-run, and nothing else reports it.
+    name: "tools-skills-use",
+    fix: "the service's repository; or src/tools.ts and the skills, if the rename was meant",
+    applies: (env) => toolServers(env).length > 0,
+    feeds: (db) => db.prepare("SELECT name FROM feeds WHERE name LIKE 'tools:%' ORDER BY name").pluck().all() as string[],
+    run: (db) => {
+      const listed = listedTools(db);
+      if (!listed.size) throw new Error("no service's tools have been listed yet");
+      return [...listed].flatMap(([service, tools]) => (TOOLS_SKILLS_USE[service] ?? []).filter((tool) => !tools.includes(tool)).map((tool) => ({
+        ref: `${service}:${tool}`, detail: `${service} no longer lists ${tool}, which the authoring skills call. It lists: ${tools.join(", ") || "nothing"}.`, severity: "fail" as const,
+      })));
+    },
+  },
 ];
 
 /** HOLDINGS_ZOTERO_READERS: who should be reading /zotero, as name=address:seconds[,…]. A bad entry is an error, not a silent gap. */
@@ -181,7 +198,15 @@ export function runChecks(db: DB, env: NodeJS.ProcessEnv = process.env, at = Dat
     ON CONFLICT (name) DO UPDATE SET result = excluded.result, fix = excluded.fix, feeds = excluded.feeds, reason = excluded.reason, at = excluded.at`);
   const dismissals = db.prepare("SELECT ref FROM check_dismissals WHERE check_name = ?").pluck();
   const undismiss = db.prepare("DELETE FROM check_dismissals WHERE check_name = ? AND ref = ?");
+  const forget = db.prepare("DELETE FROM checks WHERE name = ?");
   for (const check of CHECKS) {
+    let applies = true;
+    try { applies = check.applies?.(env) ?? true; } catch { /* a bad setting is reported by the check itself */ }
+    if (!applies) {
+      remove.run(check.name);
+      forget.run(check.name);
+      continue;
+    }
     let findings: Finding[];
     const feeds = check.feeds(db);
     const reason = unusable(db, feeds);
