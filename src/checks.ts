@@ -159,7 +159,9 @@ export const CHECKS: Check[] = [
     fix: "the service's repository; or src/tools.ts and the skills, if the rename was meant",
     applies: (env) => toolServers(env).length > 0,
     feeds: (db) => db.prepare("SELECT name FROM feeds WHERE name LIKE 'tools:%' ORDER BY name").pluck().all() as string[],
-    run: (db) => {
+    run: (db, env) => {
+      // A setting that doesn't parse is reported as the reason the check was skipped, not judged from an old listing.
+      toolServers(env);
       const listed = listedTools(db);
       if (!listed.size) throw new Error("no service's tools have been listed yet");
       return [...listed].flatMap(([service, tools]) => (TOOLS_SKILLS_USE[service] ?? []).filter((tool) => !tools.includes(tool)).map((tool) => ({

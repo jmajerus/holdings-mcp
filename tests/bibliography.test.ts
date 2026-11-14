@@ -19,6 +19,8 @@ function feed(name: string, body: unknown) {
   db.prepare("INSERT INTO feeds (name, body, ok_at) VALUES (?, ?, ?)").run(name, JSON.stringify(body), now());
 }
 
+const feed2 = (name: string, body: unknown) => db.prepare("UPDATE feeds SET body = ? WHERE name = ?").run(JSON.stringify(body), name);
+
 beforeEach(() => {
   db = openDb(":memory:");
   item("RUSS2019", {
@@ -79,8 +81,15 @@ describe("bibliography", () => {
     expect(bibliography(db, ["hendricks2018reality"]).unfiled).toEqual([{ citekey: "hendricks2018reality", work: "main:49", book_id: "main:49", calibre_uuid: null }]);
     expect(b.ambiguous).toEqual([{ citekey: "shared2000", candidates: [`zotero:${LIB}/DUPE0001`, `zotero:${LIB}/DUPE0002`] }]);
     expect(b.missing).toEqual(["nobody1900nothing", "paper1950only"]);
-    // A citekey asked for twice, in any case, is answered once, under Zotero's spelling.
+    // A citekey asked for twice, in any case, is answered once, under the spelling first asked for.
     expect(b.items.map((i) => i.id)).toEqual(["russell2019human"]);
+  });
+
+  it("answers under the citekey asked for, when the work has it from corpus-mcp and its Zotero item carries another", () => {
+    item("PINN0001", { title: "Pinned Elsewhere", citationKey: "zoterokey2001" });
+    feed2("books", { version: 1, books: [{ calibre_uuid: null, book_id: "main:7", library: "main", title: "Pinned Elsewhere", authors: [], formats: ["epub"], has_text: true, citekey: "pinnedkey2001", zotero: { library: LIB, key: "PINN0001" } }] });
+    rebuildWorks(db);
+    expect(bibliography(db, ["pinnedkey2001", "zoterokey2001"]).items.map((i) => [i.id, i.title])).toEqual([["pinnedkey2001", "Pinned Elsewhere"], ["zoterokey2001", "Pinned Elsewhere"]]);
   });
 
   it("keeps a proposed key out of the work's own keys", () => {

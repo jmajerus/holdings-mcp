@@ -1,5 +1,4 @@
 import type { DB } from "./db.js";
-import { citekeyOf } from "./works.js";
 
 /**
  * A bibliography for a list of citekeys, from the Zotero mirror (GET /api/bibliography, LAN only), so a renderer
@@ -132,8 +131,9 @@ export function bibliography(db: DB, citekeys: string[]): Bibliography {
       const data = item.get(work.key.slice("zotero:".length, at), work.key.slice(at + 1)) as string | undefined;
       if (!data) { out.missing.push(citekey); continue; }
       const parsed = JSON.parse(data) as Zotero;
-      // The id is the key the document cites: Zotero's own spelling of it, which Pandoc matches exactly.
-      out.items.push(toCsl(parsed, citekeyOf(parsed) ?? citekey));
+      // The id is the key the document cites, as asked: a work can answer to a citekey its Zotero item doesn't carry
+      // (a key pinned in corpus-mcp), and an entry under any other id wouldn't resolve the citation.
+      out.items.push(toCsl(parsed, citekey));
     } else if (work.kind === "calibre") {
       const held = book.get(work.key) as { ref: string; detail: string } | undefined;
       const uuid = held ? (JSON.parse(held.detail) as { calibre_uuid?: string | null }).calibre_uuid ?? null : null;

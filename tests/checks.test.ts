@@ -792,6 +792,12 @@ describe("tools-skills-use", () => {
     expect(db.prepare("SELECT name FROM feeds WHERE name LIKE 'tools:%'").pluck().all()).toEqual(["tools:quote-mcp"]);
   });
 
+  it("is skipped, with the reason, when the setting stops parsing, whatever was listed before", async () => {
+    await pollTools(db, servers, async () => [...TOOLS_SKILLS_USE["quote-mcp"], ...TOOLS_SKILLS_USE["iasp-mcp"]]);
+    run([], [], { HOLDINGS_TOOL_SERVERS: "quote-mcp" });
+    expect(result("tools-skills-use")).toMatchObject({ result: "skipped", reason: expect.stringContaining("name=url") });
+  });
+
   it("refuses a setting that isn't name=url", () => {
     expect(() => toolServers({ HOLDINGS_TOOL_SERVERS: "quote-mcp" })).toThrow(/name=url/);
     expect(toolServers({})).toEqual([]);
