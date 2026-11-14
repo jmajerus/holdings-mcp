@@ -140,6 +140,7 @@ const CHECK_LABELS: Record<string, string> = {
   "filed-but-unmatched": "Filed books match the corpus",
   "likely-missed-matches": "Possible book matches",
   "zotero-readers-in-step": "Services are keeping up with Zotero",
+  "tools-skills-use": "Services list the tools the skills call",
 };
 const RESULT_LABELS: Record<string, string> = { ok: "Passed", drift: "Drift", fail: "Failed", skipped: "Not checked" };
 

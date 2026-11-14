@@ -61,6 +61,18 @@ listing's first page, or `/deleted`) and the `since` it asked from. That needs n
 |---|---|---|---|
 | **Readers in step.** Each service configured as a reader (`HOLDINGS_ZOTERO_READERS`, e.g. `corpus-mcp=192.168.1.179:300,quote-mcp=192.168.1.210:1800`: address and sync interval in seconds) has read `/zotero` within three of its intervals. The `since` it last asked from is shown beside it, so a reader stuck on an old version is visible too. | drift (three intervals), then fail | A service that went back to reading zotero.org (a lost env line, a deploy that didn't push it), or whose sync timer stopped | the reader's repository |
 
+### Tools the skills call (every service)
+
+Built 2026-11-14. holdings-mcp asks each service in `HOLDINGS_TOOL_SERVERS` for its tool list over MCP, every ten
+minutes, and keeps it as a feed (`tools:<service>`).
+
+| Check | Severity | What it catches | Fix in |
+|---|---|---|---|
+| **Tools the skills call.** Every tool named in `TOOLS_SKILLS_USE` (`src/tools.ts`) is in its service's list. A service that didn't answer makes the check `skipped`, not failed. | fail | A tool renamed or dropped, which otherwise shows only when a skill trips over it mid-run (Glass Office finding #8) | the service; or `src/tools.ts` and the skills, if the rename was meant |
+
+It checks each service's own names. The prefix the portal adds, and which tools the portal exposes, are set in
+Cloudflare and aren't visible from here.
+
 ### Quotes and anchors (corpus-mcp ↔ quote-mcp)
 
 These need the snapshots under "What holdings-mcp needs from the others".

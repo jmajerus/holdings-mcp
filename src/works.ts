@@ -127,6 +127,8 @@ export function rebuildWorks(db: DB): RebuildResult {
     }
     alias(book.book_id, target, "book");
     alias(book.citekey, target, "citekey");
+    // A proposed key finds the book (a draft may cite it before the book is filed) without being its citekey.
+    if (!book.citekey) alias(book.proposed_citekey, target, "proposed");
     holdings.push({
       work_key: target, form: book.has_text ? "text" : "file", ref: book.book_id,
       detail: { source: "calibre", book_id: book.book_id, library: book.library, formats: book.formats ?? [], calibre_uuid: book.calibre_uuid, matched_by: target === matched ? book.zotero?.matched_by ?? null : null },

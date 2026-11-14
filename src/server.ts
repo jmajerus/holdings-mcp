@@ -2,6 +2,7 @@ import http from "node:http";
 import type { JWTVerifyGetKey } from "jose";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { MAX_CITEKEYS, bibliography } from "./bibliography.js";
 import { checkResults, checkSummary, zoteroReads } from "./checks.js";
 import type { DB } from "./db.js";
 import { AccessError, authorizeRequest, requestAccessConfig, type RequestAccessConfig } from "./http-access.js";
@@ -59,10 +60,11 @@ export function serveHttp(db: DB, options: ServeOptions): Promise<http.Server> {
         if (req.method !== "GET") return void res.writeHead(405, { allow: "GET" }).end();
         return void res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" }).end(url.pathname === "/admin" ? await adminPage(db) : await homePage(db, process.env, url.searchParams, via === "lan"));
       }
-      if (url.pathname.startsWith("/zotero/") || url.pathname === "/api/refresh" || url.pathname === "/api/checks" || url.pathname === "/worklist" || url.pathname.startsWith("/worklist/")) {
+      if (url.pathname.startsWith("/zotero/") || url.pathname === "/api/refresh" || url.pathname === "/api/checks" || url.pathname === "/api/bibliography" || url.pathname === "/worklist" || url.pathname.startsWith("/worklist/")) {
         if (via !== "lan") return void res.writeHead(404, { "content-type": "application/json" }).end(JSON.stringify({ error: "Not found." }));
         if (url.pathname === "/api/refresh") return await refreshNow(db, options.refresher, req, res);
         if (url.pathname === "/api/checks") return sendChecks(db, req, res, url);
+        if (url.pathname === "/api/bibliography") return sendBibliography(db, req, res, url);
         if (url.pathname === "/worklist" || url.pathname === "/worklist/dismiss" || url.pathname === "/worklist/restore") return await sendWorklist(db, req, res, url);
         if (url.pathname.startsWith("/worklist/")) return void res.writeHead(404).end();
         return sendZoteroApi(db, req, res, url);
@@ -123,6 +125,15 @@ function sendChecks(db: DB, req: http.IncomingMessage, res: http.ServerResponse,
   // Findings store ISO times, so a since in any other form compares by the instant it means.
   const iso = since === undefined ? undefined : new Date(since).toISOString();
   res.writeHead(200, json).end(JSON.stringify({ summary: checkSummary(db), checks: checkResults(db, iso), zotero_readers: zoteroReads(db) }));
+}
+
+function sendBibliography(db: DB, req: http.IncomingMessage, res: http.ServerResponse, url: URL): void {
+  const json = { "content-type": "application/json", "cache-control": "no-store" };
+  if (req.method !== "GET") return void res.writeHead(405, { ...json, allow: "GET" }).end(JSON.stringify({ error: "GET a bibliography." }));
+  const citekeys = url.searchParams.getAll("citekeys").flatMap((v) => v.split(",")).map((k) => k.trim()).filter(Boolean);
+  if (!citekeys.length) return void res.writeHead(400, json).end(JSON.stringify({ error: "Name the works to describe: citekeys=<citekey>[,<citekey>…]." }));
+  if (citekeys.length > MAX_CITEKEYS) return void res.writeHead(400, json).end(JSON.stringify({ error: `At most ${MAX_CITEKEYS} citekeys to a request, not ${citekeys.length}.` }));
+  res.writeHead(200, json).end(JSON.stringify(bibliography(db, citekeys)));
 }
 
 export async function serveStdio(db: DB): Promise<void> {
