@@ -361,7 +361,7 @@ describe("worklist", () => {
     db.prepare("UPDATE feeds SET url = 'http://corpus-mcp.example:8000/api/holdings/books' WHERE name = 'books'").run();
     const page = await (await fetch(`${base}/worklist`)).text();
     expect(page).toContain("zotero://select/library/items/AAAA0001");
-    expect(page).toContain("http://corpus-mcp.example:8000/admin/books/main%3A1");
+    expect(page).toContain("http://corpus-mcp.example:8000/admin/books/main:1");
     expect(page).toContain("pin missed2001 on the book's page in corpus-mcp (or pin_citekey main:1 missed2001)");
     expect((await post("/worklist/dismiss", { check: "likely-missed-matches", ref: `calibre:${UUID}`, reason: "" })).status).toBe(400);
     const done = await post("/worklist/dismiss", { check: "likely-missed-matches", ref: `calibre:${UUID}`, reason: "Different edition" });
@@ -577,8 +577,8 @@ describe("home page", () => {
     expect(lan).toContain('href="zotero://select/library/items/AAAA0001"');
     expect(lan).toContain('href="zotero://select/groups/42/items/AAAA0002"');
     expect(lan).toContain('href="https://www.zotero.org/groups/42/test_group/items/AAAA0002"');
-    expect(lan).toContain(`href="${fakeBase}/admin/books/main%3A123"`);
-    expect(lan).toContain(`href="${fakeBase}/admin/books/scans%3A456"`);
+    expect(lan).toContain(`href="${fakeBase}/admin/books/main:123"`);
+    expect(lan).toContain(`href="${fakeBase}/admin/books/scans:456"`);
     for (const text of ["id:123", "id:456", "PDF", 'aria-label="Location details for Located book"', "quote-store record without a confirmed"]) expect(lan).toContain(text);
     const remote = await homePage(db, dashboardEnv(), new URLSearchParams(), false);
     expect(remote).not.toContain(fakeBase);
@@ -586,8 +586,8 @@ describe("home page", () => {
     expect(remote).toContain("id:123");
     expect(remote).toContain('href="https://www.zotero.org/');
     const publicCatalog = await homePage(db, { ...dashboardEnv(), HOLDINGS_CATALOG_URL: "https://books.example.org/catalog/" }, new URLSearchParams(), false);
-    expect(publicCatalog).toContain('href="https://books.example.org/catalog/books/main%3A123"');
-    expect(publicCatalog).toContain('href="https://books.example.org/catalog/books/scans%3A456"');
+    expect(publicCatalog).toContain('href="https://books.example.org/catalog/books/main:123"');
+    expect(publicCatalog).toContain('href="https://books.example.org/catalog/books/scans:456"');
     const unsafe = await homePage(db, { HOLDINGS_CATALOG_URL: "javascript:alert(1)" }, new URLSearchParams(), false);
     expect(unsafe).not.toContain("javascript:");
     expect(unsafe).toContain("id:123");
@@ -626,7 +626,7 @@ describe("home page", () => {
     expect(both).toContain('aria-label="Open Calibre record"');
     expect(both).toContain('aria-label="Open Zotero record"');
     expect(both).toContain('aria-label="Open Quotes record"');
-    expect(row("Calibre source")).toContain('<a class="citekey-link" href="https://books.example.org/books/main%3A2"');
+    expect(row("Calibre source")).toContain('<a class="citekey-link" href="https://books.example.org/books/main:2"');
     expect(row("Quote source")).toContain('<a class="citekey-link" href="https://quotes.example.org/works/9"');
     expect(page).not.toContain('class="work-links"');
     expect(page).not.toContain('>Open Zotero record</a>');

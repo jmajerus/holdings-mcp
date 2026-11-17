@@ -1,6 +1,7 @@
 import type http from "node:http";
 import { checkSummary } from "./checks.js";
 import { type DB, now } from "./db.js";
+import { pathSegment } from "./urls.js";
 
 /**
  * What the cross-service checks found that needs a person, at /worklist on the LAN. It's a view of the check
@@ -111,7 +112,7 @@ function links(db: DB, item: WorklistItem): string {
   if (corpus && (item.check === "filed-but-unmatched" || item.check === "likely-missed-matches" || item.ref.startsWith("book:"))) {
     // The book's own page: /admin/zotero lists a pair only when title, first author, and year agree, which these often don't.
     const book = bookOf(db, item.ref);
-    out.push(book ? `<a href="${esc(corpus)}/admin/books/${encodeURIComponent(book)}">${esc(book)} in corpus-mcp</a>` : `<a href="${esc(corpus)}/admin/zotero">corpus-mcp</a>`);
+    out.push(book ? `<a href="${esc(corpus)}/admin/books/${pathSegment(book)}">${esc(book)} in corpus-mcp</a>` : `<a href="${esc(corpus)}/admin/zotero">corpus-mcp</a>`);
   }
   if (quotes && (item.check === "one-quote-work-per-item" || item.ref.startsWith("quote:") || item.ref.startsWith("quotes:"))) out.push(`<a href="${esc(quotes)}/admin">quote-mcp</a>`);
   return [...new Set(out)].join(" · ");

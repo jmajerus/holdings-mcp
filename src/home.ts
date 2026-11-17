@@ -3,6 +3,7 @@ import { healthStatus } from "./health.js";
 import { type DB, getMeta } from "./db.js";
 import { findWork, holdingsStatus, ToolError, type Has } from "./queries.js";
 import { worklistCount } from "./worklist.js";
+import { pathSegment, queryValue } from "./urls.js";
 
 /**
  * LAN pages: library search at /, and operational information at /admin, including the other core services
@@ -183,7 +184,7 @@ function workLocations(db: DB, work: ReturnType<typeof findWork>["works"][number
   const webBase = zotero ? getMeta(db, `zotero_web_base:${zotero[1]}/${zotero[2]}`) : null;
   const web = webBase && zotero ? `${webBase}/items/${zotero[3]}` : null;
   const app = zotero ? `zotero://select/${zotero[1] === "groups" ? `groups/${zotero[2]}` : "library"}/items/${zotero[3]}` : null;
-  const bookLink = (id: string) => corpus ? `${corpus}/${encodeURIComponent(id)}` : null;
+  const bookLink = (id: string) => corpus ? `${corpus}/${pathSegment(id)}` : null;
   const quoteIds = [...new Set((db.prepare("SELECT detail FROM holdings WHERE work_key = ? AND form = 'quotes'").all(work.key) as { detail: string }[])
     .map((row) => (JSON.parse(row.detail) as { work_id?: number }).work_id)
     .filter((id): id is number => typeof id === "number" && Number.isSafeInteger(id) && id > 0))];
@@ -220,7 +221,7 @@ const LIBRARY_PARAMS = ["q", "key", "has", "offset"];
  * (all legal in a query). A browser's form submission writes `quote:761` as `quote%3A761`.
  */
 export function libraryQuery(params: URLSearchParams): string {
-  const part = (name: string, value: string) => `${encodeURIComponent(name)}=${encodeURIComponent(value).replace(/%20/g, "+").replace(/%(3A|40|2F|2C)/gi, (m) => decodeURIComponent(m))}`;
+  const part = (name: string, value: string) => `${queryValue(name)}=${queryValue(value)}`;
   const parts: string[] = [];
   for (const name of LIBRARY_PARAMS) {
     const value = params.get(name)?.trim() ?? "";
