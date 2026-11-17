@@ -102,6 +102,10 @@ HOLDINGS_ZOTERO_READERS=corpus-mcp=192.168.1.179:300,quote-mcp=192.168.1.210:180
 Whether each service still lists the tools the authoring skills call is checked by authoring-ops-mcp, which
 also reports whether each service is up. `HOLDINGS_TOOL_SERVERS` is no longer read.
 
+The whole-suite interop runs that used to be kept here (The Chamber and the System, The Glass Office, and the Glass
+Office brief, plan, and follow-up) are in authoring-ops-mcp's `docs/interop/`. The two portal-article essays that
+sat untracked in `docs/demo` are authoring-skills' `examples/portal-article/`.
+
 ## Deploying
 
 On its own LXC (`holdings-mcp.localdomain`, port 8000), on quote-mcp's pattern:
