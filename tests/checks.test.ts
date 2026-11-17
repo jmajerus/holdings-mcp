@@ -9,7 +9,7 @@ import { type DB, now, openDb, setMeta } from "../src/db.js";
 import { adminPage, homePage, present, probe, readLinks } from "../src/home.js";
 import { serveHttp } from "../src/server.js";
 import { dismiss, worklist } from "../src/worklist.js";
-import { TOOLS_SKILLS_USE, pollTools, toolServers } from "../src/tools.js";
+import { refresh } from "../src/refresh.js";
 import { rebuildWorks } from "../src/works.js";
 
 /** Each check gets data that breaks what it guards, and correct data it must pass (docs/cross-service-checks.md). */
@@ -51,7 +51,6 @@ describe("correct data", () => {
     item("AAAA0001", { ISBN: "9781098151330", citationKey: "one2001" });
     item("AAAA0002", { ISBN: "9781098151330", citationKey: "two2002" });
     run([book("main:1", { zotero: { library: LIB, key: "AAAA0001" }, isbns: ["9781098151330"], citekey: "one2001" })], [quoted(1, { zotero: { library: LIB, key: "AAAA0002" } })]);
-    // tools-skills-use isn't set up here, so it's left out.
     expect(checkSummary(db)).toEqual({ ok: 6, drift: 0, fail: 0, skipped: 0, failing: [] });
   });
 });
@@ -754,55 +753,16 @@ describe("home page", () => {
   }, 15_000);
 });
 
-describe("tools-skills-use", () => {
-  const servers = { HOLDINGS_TOOL_SERVERS: "quote-mcp=http://quote.test/mcp, iasp-mcp=http://iasp.test/mcp" };
-
-  it("is skipped until a service's tools are listed, and passes when every tool the skills call is there", async () => {
-    run([], []);
-    expect(result("tools-skills-use")).toBeUndefined();
-    run([], [], servers);
-    expect(result("tools-skills-use")).toMatchObject({ result: "skipped", reason: expect.stringContaining("listed yet") });
-    await pollTools(db, servers, async (url) => (url.includes("quote") ? [...TOOLS_SKILLS_USE["quote-mcp"], "worklist"] : TOOLS_SKILLS_USE["iasp-mcp"]));
-    runChecks(db, servers);
-    expect(result("tools-skills-use")).toMatchObject({ result: "ok", count: 0, feeds: [{ name: "tools:iasp-mcp" }, { name: "tools:quote-mcp" }] });
-  });
-
-  it("fails on a tool a service renamed, naming what it lists now", async () => {
-    await pollTools(db, servers, async (url) => (url.includes("quote") ? TOOLS_SKILLS_USE["quote-mcp"].map((t) => (t === "cite_quote" ? "quote_cite" : t)) : TOOLS_SKILLS_USE["iasp-mcp"]));
-    run([], [], servers);
-    const r = result("tools-skills-use");
-    expect(r).toMatchObject({ result: "fail", count: 1 });
-    expect(r.examples[0]).toMatchObject({ ref: "quote-mcp:cite_quote", severity: "fail", detail: expect.stringContaining("quote_cite") });
-    expect(worklist(db).open.map((i) => i.ref)).toContain("quote-mcp:cite_quote");
-  });
-
-  it("gives no verdict when a service didn't answer, and keeps its last listing", async () => {
-    await pollTools(db, servers, async () => [...TOOLS_SKILLS_USE["quote-mcp"], ...TOOLS_SKILLS_USE["iasp-mcp"]]);
-    db.prepare("UPDATE feeds SET ok_at = ? WHERE name LIKE 'tools:%'").run(new Date(Date.now() - HOUR).toISOString());
-    await pollTools(db, servers, async (url) => { if (url.includes("iasp")) throw new Error("connect ECONNREFUSED"); return TOOLS_SKILLS_USE["quote-mcp"]; });
-    run([], [], servers);
-    expect(result("tools-skills-use")).toMatchObject({ result: "skipped", reason: "tools:iasp-mcp failed" });
-    expect(db.prepare("SELECT body FROM feeds WHERE name = 'tools:iasp-mcp'").pluck().get()).toContain("render_document");
-  });
-
-  it("lists a service again only when its listing has aged, and forgets one taken off the list", async () => {
-    let calls = 0;
-    const list = async () => { calls++; return ["status"]; };
-    await pollTools(db, servers, list);
-    await pollTools(db, servers, list);
-    expect(calls).toBe(2);
-    await pollTools(db, { HOLDINGS_TOOL_SERVERS: "quote-mcp=http://quote.test/mcp" }, list);
-    expect(db.prepare("SELECT name FROM feeds WHERE name LIKE 'tools:%'").pluck().all()).toEqual(["tools:quote-mcp"]);
-  });
-
-  it("is skipped, with the reason, when the setting stops parsing, whatever was listed before", async () => {
-    await pollTools(db, servers, async () => [...TOOLS_SKILLS_USE["quote-mcp"], ...TOOLS_SKILLS_USE["iasp-mcp"]]);
-    run([], [], { HOLDINGS_TOOL_SERVERS: "quote-mcp" });
-    expect(result("tools-skills-use")).toMatchObject({ result: "skipped", reason: expect.stringContaining("name=url") });
-  });
-
-  it("refuses a setting that isn't name=url", () => {
-    expect(() => toolServers({ HOLDINGS_TOOL_SERVERS: "quote-mcp" })).toThrow(/name=url/);
-    expect(toolServers({})).toEqual([]);
+describe("a check that moved away", () => {
+  it("leaves no result, finding, dismissal, or tool listing behind", async () => {
+    db.prepare("INSERT INTO checks (name, result, fix, feeds, at) VALUES ('tools-skills-use', 'fail', 'x', '[]', ?)").run(now());
+    db.prepare("INSERT INTO check_findings (check_name, ref, detail, severity, first_seen, last_seen) VALUES ('tools-skills-use', 'quote-mcp:cite_quote', 'gone', 'fail', ?, ?)").run(now(), now());
+    db.prepare("INSERT INTO check_dismissals (check_name, ref, detail, reason, at) VALUES ('tools-skills-use', 'quote-mcp:cite_quote', 'gone', 'renamed on purpose', ?)").run(now());
+    db.prepare("INSERT INTO feeds (name, url, checked_at) VALUES ('tools:quote-mcp', 'http://quote.test/mcp', ?)").run(now());
+    await refresh(db, { zotero: [], env: {}, log: () => {} });
+    expect(checkResults(db).map((c) => c.name)).not.toContain("tools-skills-use");
+    expect(db.prepare("SELECT COUNT(*) FROM check_findings WHERE check_name = 'tools-skills-use'").pluck().get()).toBe(0);
+    expect(db.prepare("SELECT COUNT(*) FROM check_dismissals WHERE check_name = 'tools-skills-use'").pluck().get()).toBe(0);
+    expect(db.prepare("SELECT COUNT(*) FROM feeds WHERE name LIKE 'tools:%'").pluck().get()).toBe(0);
   });
 });
