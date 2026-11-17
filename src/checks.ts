@@ -108,8 +108,7 @@ export const CHECKS: Check[] = [
         const uuid = /Calibre UUID:\s*([0-9a-f-]+)/i.exec(String((JSON.parse(item.data) as { extra?: unknown }).extra ?? ""))?.[1]?.toLowerCase();
         const work = uuid && `calibre:${uuid}`;
         if (!work || !unfiled.has(work)) return [];
-        // corpus-mcp matches against one library (CORPUS_ZOTERO_LIBRARY), so one filed in another stays here until it reads both.
-        return [{ ref: work, detail: `Filed as ${item.library}/${item.key}, in ${item.library}; corpus-mcp hasn't matched it, and only matches against CORPUS_ZOTERO_LIBRARY.`, severity: "drift" as const, allowanceMs: HOUR }];
+        return [{ ref: work, detail: `Filed as ${item.library}/${item.key}, whose Extra names this book's Calibre UUID; corpus-mcp hasn't matched it.`, severity: "drift" as const, allowanceMs: HOUR }];
       });
     },
   },
