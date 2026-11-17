@@ -99,13 +99,8 @@ its returning after it went away. To check who reads the Zotero mirror, list the
 HOLDINGS_ZOTERO_READERS=corpus-mcp=192.168.1.179:300,quote-mcp=192.168.1.210:1800   # name=address:seconds it syncs every
 ```
 
-To check that each service still lists the tools the authoring skills call (`TOOLS_SKILLS_USE` in
-[src/tools.ts](src/tools.ts)), name their MCP endpoints. Each is asked for its tools every ten minutes, and a
-tool that's gone is a `fail` on the worklist. Unset, the check is left out:
-
-```bash
-HOLDINGS_TOOL_SERVERS=corpus-mcp=http://corpus-mcp.localdomain:8000/mcp,quote-mcp=http://quote-mcp.localdomain:8000/mcp
-```
+Whether each service still lists the tools the authoring skills call is checked by authoring-ops-mcp, which
+also reports whether each service is up. `HOLDINGS_TOOL_SERVERS` is no longer read.
 
 ## Deploying
 

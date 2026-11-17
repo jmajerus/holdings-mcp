@@ -1,7 +1,6 @@
 import { runChecks } from "./checks.js";
 import { type DB, now, setMeta } from "./db.js";
 import { FEEDS, feedUrl, pollFeed, recordZotero } from "./feeds.js";
-import { pollTools } from "./tools.js";
 import { forgetUnlistedLibraries, syncLibrary } from "./sync.js";
 import { rebuildWorks, worksOutdated } from "./works.js";
 import { ZoteroClient, type ZoteroConfig } from "./zotero.js";
@@ -48,11 +47,8 @@ export async function refresh(db: DB, options: RefreshOptions): Promise<{ change
       log(`${feed.name}: new snapshot.\n`);
     }
   }
-  try {
-    await pollTools(db, options.env);
-  } catch (error) {
-    log(`${(error as Error).message}\n`);
-  }
+  // Tool listings were kept as feeds until that check moved to authoring-ops-mcp; left alone, they'd turn stale.
+  db.prepare("DELETE FROM feeds WHERE name LIKE 'tools:%'").run();
   setMeta(db, "last_refresh", now());
   const r = changed ? rebuildWorks(db) : null;
   if (r?.retired.length) log(`Filed since the last refresh: ${r.retired.join(", ")}.\n`);
