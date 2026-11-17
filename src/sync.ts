@@ -73,7 +73,7 @@ export function forgetUnlistedLibraries(db: DB, listed: string[]): string[] {
       db.prepare("DELETE FROM zotero_deletions WHERE library = ?").run(library);
       db.prepare("DELETE FROM zotero_readers WHERE library = ?").run(library);
       db.prepare("DELETE FROM feeds WHERE name = ?").run(`zotero:${library}`);
-      for (const prefix of ["zotero_version", "zotero_deletions", "zotero_web_base"]) db.prepare("DELETE FROM meta WHERE key = ?").run(`${prefix}:${library}`);
+      for (const prefix of ["zotero_version", "zotero_deletions", "zotero_web_base", "zotero_counts"]) db.prepare("DELETE FROM meta WHERE key = ?").run(`${prefix}:${library}`);
     }
   })();
   return dropped;

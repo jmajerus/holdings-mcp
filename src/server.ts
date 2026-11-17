@@ -13,6 +13,7 @@ import { FAVICON } from "./favicon.js";
 import { holdingsStatus } from "./queries.js";
 import type { Refresher } from "./refresh.js";
 import { sendWorklist, worklistCount } from "./worklist.js";
+import { zoteroStats } from "./stats.js";
 import { sendZoteroApi } from "./zotero-api.js";
 
 /**
@@ -21,7 +22,8 @@ import { sendZoteroApi } from "./zotero-api.js";
  * Cloudflare need a verified Access token. Direct LAN requests don't.
  * On the LAN only (a 404 through Access): the Zotero mirror at /zotero (src/zotero-api.ts), and
  * POST /api/refresh, which refreshes now, so a service that just wrote to Zotero can see it here; and
- * GET /api/checks, the cross-service checks in full (src/checks.ts); /admin for maintenance (src/home.ts); and /worklist, what they found that needs a
+ * GET /api/checks, the cross-service checks in full (src/checks.ts); GET /api/zotero/stats, each mirrored library
+ * in numbers (src/stats.ts); /admin for maintenance (src/home.ts); and /worklist, what they found that needs a
  * person (src/worklist.ts).
  */
 
@@ -60,10 +62,15 @@ export function serveHttp(db: DB, options: ServeOptions): Promise<http.Server> {
         if (req.method !== "GET") return void res.writeHead(405, { allow: "GET" }).end();
         return void res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" }).end(url.pathname === "/admin" ? await adminPage(db) : await homePage(db, process.env, url.searchParams, via === "lan"));
       }
-      if (url.pathname.startsWith("/zotero/") || url.pathname === "/api/refresh" || url.pathname === "/api/checks" || url.pathname === "/api/bibliography" || url.pathname === "/worklist" || url.pathname.startsWith("/worklist/")) {
+      if (url.pathname.startsWith("/zotero/") || url.pathname === "/api/refresh" || url.pathname === "/api/checks" || url.pathname === "/api/zotero/stats" || url.pathname === "/api/bibliography" || url.pathname === "/worklist" || url.pathname.startsWith("/worklist/")) {
         if (via !== "lan") return void res.writeHead(404, { "content-type": "application/json" }).end(JSON.stringify({ error: "Not found." }));
         if (url.pathname === "/api/refresh") return await refreshNow(db, options.refresher, req, res);
         if (url.pathname === "/api/checks") return sendChecks(db, req, res, url);
+        if (url.pathname === "/api/zotero/stats") {
+          const json = { "content-type": "application/json", "cache-control": "no-store" };
+          if (req.method !== "GET") return void res.writeHead(405, { ...json, allow: "GET" }).end(JSON.stringify({ error: "GET the stats." }));
+          return void res.writeHead(200, json).end(JSON.stringify(zoteroStats(db)));
+        }
         if (url.pathname === "/api/bibliography") return sendBibliography(db, req, res, url);
         if (url.pathname === "/worklist" || url.pathname === "/worklist/dismiss" || url.pathname === "/worklist/restore") return await sendWorklist(db, req, res, url);
         if (url.pathname.startsWith("/worklist/")) return void res.writeHead(404).end();
