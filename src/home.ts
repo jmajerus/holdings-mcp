@@ -174,7 +174,7 @@ function noteText(html: string): string {
 }
 
 /** Links and finding instructions use current copies, never former keys or guessed matches. */
-function workLocations(db: DB, work: ReturnType<typeof findWork>["works"][number], corpus: string | null, quotesBase: string | null, lan: boolean) {
+function workLocations(db: DB, work: ReturnType<typeof findWork>["works"][number], corpus: string | null, quotesBase: string | null, lan: boolean, open = false) {
   const copies = (db.prepare("SELECT detail FROM holdings WHERE work_key = ? AND form IN ('text', 'file') ORDER BY ref").all(work.key) as { detail: string }[])
     .map((row) => JSON.parse(row.detail) as { source?: string; book_id?: string; library?: string; formats?: string[] })
     .filter((copy) => copy.source === "calibre" && typeof copy.book_id === "string");
@@ -198,7 +198,7 @@ function workLocations(db: DB, work: ReturnType<typeof findWork>["works"][number
   // A citekey names its Zotero record first; works outside Zotero fall back to their actual holding.
   const primaryHref = web ?? app ?? firstBook ?? firstQuotes;
   const primaryLabel = zotero ? "Zotero" : firstBook ? "Calibre" : "Quotes";
-  const finding = `<details class="work-location"><summary aria-label="Location details for ${esc(work.title || "Untitled work")}"></summary>
+  const finding = `<details class="work-location"${open ? " open" : ""}><summary aria-label="Location details for ${esc(work.title || "Untitled work")}"></summary>
     ${zotero ? `<p><strong>Zotero:</strong> ${zotero[1] === "groups" ? "Group" : "User"} library ${esc(zotero[2])}, item <code>${esc(zotero[3])}</code>.<br>${web ? `<a href="${esc(web)}">Open web library</a> · ` : ""}<a href="${esc(app)}">Select in Zotero desktop</a><br><span class="s">The web library may require sign-in. The desktop link needs Zotero installed and this library synced.</span></p>` : ""}
     ${copies.map((copy) => {
       const id = copy.book_id!;
@@ -249,8 +249,8 @@ function library(db: DB, params: URLSearchParams, env: NodeJS.ProcessEnv, lan: b
       const next = libraryQuery(new URLSearchParams({ q: query, key, has: has ?? "", offset: String(start) }));
       return `<a href="/${next ? `?${esc(next)}` : ""}#library">${label}</a>`;
     };
-    results = found.total ? `<p class="s">${number(found.total)} matching works · showing ${number(offset + 1)}–${number(Math.min(offset + limit, found.total))}</p>
-      <ul class="works">${found.works.map((w) => { const location = workLocations(db, w, corpus, catalogBase(env.HOLDINGS_QUOTES_URL), lan); return `<li><div class="work-heading"><strong>${esc(w.title || "Untitled work")}</strong><span class="locations">${location.glyphs}</span></div>
+    results = found.total ? `<p class="s">${found.total === 1 ? "1 matching work" : `${number(found.total)} matching works · showing ${number(offset + 1)}–${number(Math.min(offset + limit, found.total))}`}</p>
+      <ul class="works">${found.works.map((w) => { const location = workLocations(db, w, corpus, catalogBase(env.HOLDINGS_QUOTES_URL), lan, found.total === 1); return `<li><div class="work-heading"><strong>${esc(w.title || "Untitled work")}</strong><span class="locations">${location.glyphs}</span></div>
       <div class="s">${esc(w.creators.join(", ") || "Unknown author")}${w.year ? ` · ${esc(w.year)}` : ""}</div>
       <div>${Object.keys(w.holdings).filter((h) => h !== "notes").map((h) => `<span class="badge">${esc(h === "text" ? "Searchable text" : h === "file" ? "Files" : "Quotes / notes")}</span>`).join(" ") || (location.notesCount ? "" : '<span class="s">Bibliographic record only</span>')}${location.notesCount ? ` <span class="badge">${location.notesCount} Zotero ${location.notesCount === 1 ? "note" : "notes"}</span>` : ""}</div>
       <div class="s">${location.primaryHref ? `<a class="citekey-link" href="${esc(location.primaryHref)}" title="View in ${location.primaryLabel}"><code>${esc(w.citekey ? `@${w.citekey}` : w.key)}</code></a>` : `<code>${esc(w.citekey ? `@${w.citekey}` : w.key)}</code>`}</div>
