@@ -21,6 +21,8 @@ class FakeZotero {
   version = 0;
   items = new Map<string, { links?: { alternate: { href: string } }; key: string; version: number; data: Record<string, unknown> }>();
   deletions = new Map<string, number>();
+  collections = 7;
+  searches = 2;
   requests: string[] = [];
   /** Run when /deleted is asked for: a change landing between a sync's two requests. */
   beforeDeleted?: () => void;
@@ -47,6 +49,10 @@ class FakeZotero {
       this.beforeDeleted = undefined;
       const items = [...this.deletions].filter(([, v]) => v > since).map(([k]) => k);
       return void res.writeHead(200, headers).end(JSON.stringify({ collections: [], searches: [], items, tags: [], settings: [] }));
+    }
+    if (url.pathname === `/${LIB}/collections` || url.pathname === `/${LIB}/searches`) {
+      const n = url.pathname.endsWith("collections") ? this.collections : this.searches;
+      return void res.writeHead(200, { ...headers, "total-results": String(n) }).end("[]");
     }
     if (url.pathname !== `/${LIB}/items` && url.pathname !== `/${LIB}/items/top`) return void res.writeHead(404).end();
     const list = [...this.items.values()]
@@ -234,6 +240,42 @@ describe("the Zotero mirror at /zotero", () => {
     zotero.requests = [];
     await refresher.now();
     expect(zotero.requests.some((r) => r.includes("deleted?since=0"))).toBe(false);
+  });
+});
+
+describe("GET /api/zotero/stats", () => {
+  it("counts each library's items by kind, its trash, and its collections, on the LAN only", async () => {
+    zotero.put("ATT00001", { itemType: "attachment", parentItem: "B0000002" });
+    zotero.put("B0000004", { itemType: "book", title: "Book 4", deleted: 1 });
+    zotero.put("ART00001", { itemType: "journalArticle", title: "A paper" });
+    zotero.remove("GONE0001");
+    await refresher.now();
+    const res = await fetch(`${base}/api/zotero/stats`);
+    expect(res.status).toBe(200);
+    const [lib] = (await res.json()).libraries;
+    expect(lib).toMatchObject({
+      library: LIB, version: zotero.version, items: 130, notes: 1, attachments: 1, annotations: 0, trashed: 1,
+      by_type: { book: 129, journalArticle: 1 }, collections: 7, searches: 2,
+    });
+    expect(lib.synced_at).toBeTruthy();
+
+    // Asked again only once the library changes.
+    zotero.requests = [];
+    zotero.collections = 8;
+    await refresher.now();
+    expect(zotero.requests.filter((r) => r.includes("/collections"))).toEqual([]);
+    zotero.put("ART00002", { itemType: "journalArticle", title: "Another" });
+    await refresher.now();
+    expect((await (await fetch(`${base}/api/zotero/stats`)).json()).libraries[0]).toMatchObject({ items: 131, collections: 8 });
+
+    // A failed count keeps the last one, and the sync carries on.
+    zotero.searches = Number.NaN;
+    zotero.put("ART00003", { itemType: "journalArticle", title: "A third" });
+    await refresher.now();
+    expect((await (await fetch(`${base}/api/zotero/stats`)).json()).libraries[0]).toMatchObject({ items: 132, collections: 8, searches: 2 });
+
+    expect((await fetch(`${base}/api/zotero/stats`, { method: "POST" })).status).toBe(405);
+    expect((await fetch(`${base}/api/zotero/stats`, { headers: { "cf-ray": "1", "cf-access-jwt-assertion": token } })).status).toBe(404);
   });
 });
 

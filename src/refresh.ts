@@ -1,6 +1,7 @@
 import { runChecks } from "./checks.js";
 import { type DB, now, setMeta } from "./db.js";
 import { FEEDS, feedUrl, pollFeed, recordZotero } from "./feeds.js";
+import { syncCounts } from "./stats.js";
 import { forgetUnlistedLibraries, syncLibrary } from "./sync.js";
 import { rebuildWorks, worksOutdated } from "./works.js";
 import { ZoteroClient, type ZoteroConfig } from "./zotero.js";
@@ -28,8 +29,10 @@ export async function refresh(db: DB, options: RefreshOptions): Promise<{ change
   }
   for (const config of options.zotero) {
     try {
-      const r = await syncLibrary(db, new ZoteroClient(config, log), config.library);
+      const client = new ZoteroClient(config, log);
+      const r = await syncLibrary(db, client, config.library);
       recordZotero(db, config.library, r);
+      await syncCounts(db, client, config.library, r.version, log);
       if (r.changed || r.deleted) {
         changed = true;
         log(`${config.library}: ${r.changed} changed, ${r.deleted} deleted, now at version ${r.version}.\n`);

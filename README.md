@@ -72,6 +72,7 @@ corpus-mcp and quote-mcp sync with, from its mirror, notes included:
 | `/worklist` | The page below: what the checks found that needs a person |
 | `GET /api/bibliography?citekeys=a,b` | A bibliography for the citekeys a document cites (500 at most), so a renderer needn't be handed a `.bib`: `items` (CSL JSON from the mirror, each `id` the citekey), `unfiled` (Calibre books not in Zotero that have the citekey, pinned or only proposed, with the `book_id` to ask corpus-mcp's `/api/csl` about), `ambiguous` (a citekey two works share, with its candidates), and `missing` |
 | `GET /api/checks` | The cross-service checks in full, and who last read `/zotero`; `since=<time>` limits findings to those first seen since then |
+| `GET /api/zotero/stats` | Each mirrored library in numbers, counts only: items (by type), notes, attachments, annotations, the trash, collections and saved searches, its version, and when it last synced. Items come from the mirror; collections and searches from Zotero's `Total-Results`, asked at a refresh that finds the library changed (the mirror doesn't keep them). authoring-ops-mcp shows them on zotero-mcp's page |
 
 Each sets `Last-Modified-Version` and, for listings, `Total-Results`, as Zotero does. The versions are
 Zotero's own, so a service that synced from Zotero carries on from its version. Any other parameter
