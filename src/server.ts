@@ -7,7 +7,7 @@ import { checkResults, checkSummary, zoteroReads } from "./checks.js";
 import type { DB } from "./db.js";
 import { AccessError, authorizeRequest, requestAccessConfig, type RequestAccessConfig } from "./http-access.js";
 import { VERSION, createServer } from "./mcp.js";
-import { adminPage, homePage } from "./home.js";
+import { adminPage, homePage, libraryQuery } from "./home.js";
 import { healthStatus } from "./health.js";
 import { FAVICON } from "./favicon.js";
 import { holdingsStatus } from "./queries.js";
@@ -60,6 +60,12 @@ export function serveHttp(db: DB, options: ServeOptions): Promise<http.Server> {
       }
       if ((url.pathname === "/" && !rootMcp) || (url.pathname === "/admin" && via === "lan")) {
         if (req.method !== "GET") return void res.writeHead(405, { allow: "GET" }).end();
+        if (url.pathname === "/") {
+          // Search links readable (?key=quote:761, not ?key=quote%3A761 or ?q=&key=…&has=): compared as the URL parser writes both.
+          const query = libraryQuery(url.searchParams);
+          const readable = new URL(`/${query ? `?${query}` : ""}`, url).search;
+          if (url.search !== readable) return void res.writeHead(302, { location: `/${query ? `?${query}` : ""}`, "cache-control": "no-store" }).end();
+        }
         return void res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" }).end(url.pathname === "/admin" ? await adminPage(db) : await homePage(db, process.env, url.searchParams, via === "lan"));
       }
       if (url.pathname.startsWith("/zotero/") || url.pathname === "/api/refresh" || url.pathname === "/api/checks" || url.pathname === "/api/zotero/stats" || url.pathname === "/api/bibliography" || url.pathname === "/worklist" || url.pathname.startsWith("/worklist/")) {

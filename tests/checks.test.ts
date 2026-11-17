@@ -693,7 +693,7 @@ describe("home page", () => {
     for (let i = 0; i < 22; i++) item(`TEST${String(i).padStart(4, "0")}`, { title: `Systems volume ${String(i).padStart(2, "0")}` });
     run([], []);
     page = await homePage(db, dashboardEnv(), new URLSearchParams({ q: "systems" }));
-    expect(page).toContain('q=systems&amp;key=&amp;has=&amp;offset=20#library');
+    expect(page).toContain('href="/?q=systems&amp;offset=20#library"');
     page = await homePage(db, dashboardEnv(), new URLSearchParams({ q: "systems", offset: "20" }));
     expect(page).toContain("showing 21–23");
     expect(page).toContain("← Previous");

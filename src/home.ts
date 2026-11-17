@@ -212,6 +212,24 @@ function workLocations(db: DB, work: ReturnType<typeof findWork>["works"][number
   return { glyphs, finding, primaryHref, primaryLabel, notesCount: notes.length };
 }
 
+const LIBRARY_PARAMS = ["q", "key", "has", "offset"];
+
+/**
+ * The library page's query string as people read it: q, key, has, and offset in that order, empty ones and
+ * offset 0 left out, any other parameter kept after them, and `:`, `@`, `/` and `,` written as themselves
+ * (all legal in a query). A browser's form submission writes `quote:761` as `quote%3A761`.
+ */
+export function libraryQuery(params: URLSearchParams): string {
+  const part = (name: string, value: string) => `${encodeURIComponent(name)}=${encodeURIComponent(value).replace(/%20/g, "+").replace(/%(3A|40|2F|2C)/gi, (m) => decodeURIComponent(m))}`;
+  const parts: string[] = [];
+  for (const name of LIBRARY_PARAMS) {
+    const value = params.get(name)?.trim() ?? "";
+    if (value && !(name === "offset" && value === "0")) parts.push(part(name, value));
+  }
+  for (const [name, value] of params) if (!LIBRARY_PARAMS.includes(name)) parts.push(part(name, value));
+  return parts.join("&");
+}
+
 function library(db: DB, params: URLSearchParams, env: NodeJS.ProcessEnv, lan: boolean): string {
   const query = params.get("q")?.trim() ?? "";
   const key = params.get("key")?.trim() ?? "";
@@ -227,8 +245,8 @@ function library(db: DB, params: URLSearchParams, env: NodeJS.ProcessEnv, lan: b
   try {
     const found = findWork(db, { query, key, has: has ? [has] : undefined, limit, offset });
     const pageLink = (start: number, label: string) => {
-      const next = new URLSearchParams({ q: query, key, has: has ?? "", offset: String(start) });
-      return `<a href="/?${esc(next.toString())}#library">${label}</a>`;
+      const next = libraryQuery(new URLSearchParams({ q: query, key, has: has ?? "", offset: String(start) }));
+      return `<a href="/${next ? `?${esc(next)}` : ""}#library">${label}</a>`;
     };
     results = found.total ? `<p class="s">${number(found.total)} matching works · showing ${number(offset + 1)}–${number(Math.min(offset + limit, found.total))}</p>
       <ul class="works">${found.works.map((w) => { const location = workLocations(db, w, corpus, catalogBase(env.HOLDINGS_QUOTES_URL), lan); return `<li><div class="work-heading"><strong>${esc(w.title || "Untitled work")}</strong><span class="locations">${location.glyphs}</span></div>
@@ -238,7 +256,7 @@ function library(db: DB, params: URLSearchParams, env: NodeJS.ProcessEnv, lan: b
       ${w.cannot_cite?.length ? `<div class="warning">Citation needs attention: ${esc(w.cannot_cite.map((b) => b.replaceAll("_", " ")).join(", "))}</div>` : ""}${location.finding}</li>`; }).join("")}</ul>
       <nav class="pagination" aria-label="Search results">${offset ? pageLink(Math.max(0, offset - limit), "← Previous") : ""}${offset + limit < found.total ? pageLink(offset + limit, "Next →") : ""}</nav>`
       : `<p class="empty">${query || key || has ? 'No works match these filters. Try fewer words or <a href="/#library">clear the filters</a>.' : "No works yet. Library records will appear after the first successful refresh."}</p>`;
-    if (found.total && offset >= found.total) results = '<p>No works on this page. <a href="/?' + esc(new URLSearchParams({ q: query, key, has: has ?? "" }).toString()) + '#library">Return to the first page</a>.</p>';
+    if (found.total && offset >= found.total) results = '<p>No works on this page. <a href="/?' + esc(libraryQuery(new URLSearchParams({ q: query, key, has: has ?? "" }))) + '#library">Return to the first page</a>.</p>';
   } catch (error) {
     if (!(error instanceof ToolError)) throw error;
     results = `<p class="problem" role="alert">${esc(error.message)}</p>`;

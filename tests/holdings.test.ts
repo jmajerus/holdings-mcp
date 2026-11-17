@@ -381,6 +381,13 @@ describe("server", () => {
     expect(html).not.toContain("Server health");
     expect(html).not.toContain("192.168.");
     expect((await fetch(`${base}/?key=montalion2024learning`, { headers })).status).toBe(200);
+    const moved = (path: string) => fetch(`${base}${path}`, { headers, redirect: "manual" }).then((r) => [r.status, r.headers.get("location")]);
+    expect(await moved("/?q=&key=quote%3A761&has=")).toEqual([302, "/?key=quote:761"]);
+    expect(await moved("/?q=systems+thinking&key=%40smith2020&offset=0")).toEqual([302, "/?q=systems+thinking&key=@smith2020"]);
+    expect(await moved("/?q=&key=&has=")).toEqual([302, "/"]);
+    for (const readable of ["/?key=quote:761", "/?q=systems+thinking&has=text&offset=20", "/?q=it's+%22quoted%22", "/"]) {
+      expect(await moved(readable)).toEqual([200, null]);
+    }
     for (const method of ["POST", "PUT", "DELETE", "PATCH"]) {
       const denied = await fetch(`${base}/`, { method, headers });
       expect(denied.status).toBe(405);
