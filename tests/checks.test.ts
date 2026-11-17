@@ -757,10 +757,12 @@ describe("a check that moved away", () => {
   it("leaves no result, finding, dismissal, or tool listing behind", async () => {
     db.prepare("INSERT INTO checks (name, result, fix, feeds, at) VALUES ('tools-skills-use', 'fail', 'x', '[]', ?)").run(now());
     db.prepare("INSERT INTO check_findings (check_name, ref, detail, severity, first_seen, last_seen) VALUES ('tools-skills-use', 'quote-mcp:cite_quote', 'gone', 'fail', ?, ?)").run(now(), now());
+    db.prepare("INSERT INTO check_dismissals (check_name, ref, detail, reason, at) VALUES ('tools-skills-use', 'quote-mcp:cite_quote', 'gone', 'renamed on purpose', ?)").run(now());
     db.prepare("INSERT INTO feeds (name, url, checked_at) VALUES ('tools:quote-mcp', 'http://quote.test/mcp', ?)").run(now());
     await refresh(db, { zotero: [], env: {}, log: () => {} });
     expect(checkResults(db).map((c) => c.name)).not.toContain("tools-skills-use");
     expect(db.prepare("SELECT COUNT(*) FROM check_findings WHERE check_name = 'tools-skills-use'").pluck().get()).toBe(0);
+    expect(db.prepare("SELECT COUNT(*) FROM check_dismissals WHERE check_name = 'tools-skills-use'").pluck().get()).toBe(0);
     expect(db.prepare("SELECT COUNT(*) FROM feeds WHERE name LIKE 'tools:%'").pluck().get()).toBe(0);
   });
 });
